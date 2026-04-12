@@ -1,0 +1,29 @@
+# Core Backend
+flask
+flask-cors
+python-dotenv
+
+# Database
+pymongo
+bcrypt
+
+# JWT Authentication
+PyJWT
+
+# PDF Processing
+pypdf
+
+# LangChain + AI
+langchain
+langchain-community
+langchain-core
+langchain-text-splitters
+
+# Mistral AI
+langchain-mistralai
+
+# Vector Database
+pinecone
+
+# Utilities
+bson
