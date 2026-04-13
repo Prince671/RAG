@@ -24,7 +24,7 @@ from flask import request
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:5173"])
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 SECRET_KEY=os.getenv("JWT_SCRET_KEY")  # Use a secure secret key in production
 

@@ -17,9 +17,9 @@ function timestamp() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  FORMATTED MESSAGE  (markdown-style renderer)
+//  FORMATTED MESSAGE  (markdown-style renderer — used for BOTH roles)
 // ─────────────────────────────────────────────────────────────────
-function FormattedMessage({ text, isDark }) {
+function FormattedMessage({ text, isDark, isUser }) {
   const [copiedIdx, setCopiedIdx] = useState(null);
 
   const handleCopy = (code, idx) => {
@@ -68,7 +68,13 @@ function FormattedMessage({ text, isDark }) {
         tokens.push(
           <code
             key={`c${tm.index}`}
-            className={`px-1.5 py-0.5 rounded text-[12px] font-mono ${isDark ? "bg-black/30 text-emerald-300" : "bg-slate-200 text-rose-600"}`}
+            className={`px-1.5 py-0.5 rounded text-[12px] font-mono ${
+              isUser
+                ? "bg-white/20 text-white"
+                : isDark
+                  ? "bg-black/30 text-emerald-300"
+                  : "bg-slate-200 text-rose-600"
+            }`}
           >
             {t.slice(1, -1)}
           </code>,
@@ -103,7 +109,7 @@ function FormattedMessage({ text, isDark }) {
             ? "text-[15px] font-extrabold mt-3 mb-1"
             : level === 2
               ? "text-[13px] font-bold mt-2.5 mb-0.5"
-              : "text-[12px] font-semibold mt-2 mb-0.5 uppercase tracking-wide text-slate-400";
+              : `text-[12px] font-semibold mt-2 mb-0.5 uppercase tracking-wide ${isUser ? "text-white/70" : "text-slate-400"}`;
         elements.push(
           <div key={`h${i}`} className={cls}>
             {renderInline(txt)}
@@ -125,7 +131,9 @@ function FormattedMessage({ text, isDark }) {
               <li key={ii} className="flex items-start gap-2">
                 <span
                   className="mt-[6px] w-1.5 h-1.5 rounded-full flex-shrink-0"
-                  style={{ background: "#3b82f6" }}
+                  style={{
+                    background: isUser ? "rgba(255,255,255,0.7)" : "#3b82f6",
+                  }}
                 />
                 <span>{renderInline(item)}</span>
               </li>
@@ -149,7 +157,9 @@ function FormattedMessage({ text, isDark }) {
           <ol key={`ol${i}`} className="mt-1.5 mb-1.5 space-y-1.5">
             {items.map((item, ii) => (
               <li key={ii} className="flex items-start gap-2">
-                <span className="text-[11px] font-bold min-w-[18px] mt-0.5 text-blue-400">
+                <span
+                  className={`text-[11px] font-bold min-w-[18px] mt-0.5 ${isUser ? "text-white/80" : "text-blue-400"}`}
+                >
                   {item.n}.
                 </span>
                 <span>{renderInline(item.text)}</span>
@@ -164,7 +174,7 @@ function FormattedMessage({ text, isDark }) {
         elements.push(
           <hr
             key={`hr${i}`}
-            className={`my-2 border-t ${isDark ? "border-white/10" : "border-black/10"}`}
+            className={`my-2 border-t ${isUser ? "border-white/20" : isDark ? "border-white/10" : "border-black/10"}`}
           />,
         );
         i++;
@@ -198,17 +208,33 @@ function FormattedMessage({ text, isDark }) {
           return (
             <div
               key={i}
-              className={`rounded-xl overflow-hidden border ${isDark ? "border-white/10 bg-[#0d1117]" : "border-black/10 bg-[#1e1e2e]"}`}
+              className={`rounded-xl overflow-hidden border ${
+                isUser
+                  ? "border-white/20 bg-black/30"
+                  : isDark
+                    ? "border-white/10 bg-[#0d1117]"
+                    : "border-black/10 bg-[#1e1e2e]"
+              }`}
             >
               <div
-                className={`flex items-center justify-between px-3 py-1.5 border-b ${isDark ? "border-white/10 bg-white/5" : "border-black/10 bg-black/5"}`}
+                className={`flex items-center justify-between px-3 py-1.5 border-b ${
+                  isUser
+                    ? "border-white/20 bg-white/5"
+                    : isDark
+                      ? "border-white/10 bg-white/5"
+                      : "border-black/10 bg-black/5"
+                }`}
               >
                 <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">
                   {part.lang}
                 </span>
                 <button
                   onClick={() => handleCopy(part.content, part.idx)}
-                  className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded transition-all ${copiedIdx === part.idx ? "text-green-400 bg-green-400/10" : "text-slate-400 hover:text-white hover:bg-white/10"}`}
+                  className={`text-[10px] flex items-center gap-1 px-2 py-0.5 rounded transition-all ${
+                    copiedIdx === part.idx
+                      ? "text-green-400 bg-green-400/10"
+                      : "text-slate-400 hover:text-white hover:bg-white/10"
+                  }`}
                 >
                   {copiedIdx === part.idx ? "✓ Copied" : "⎘ Copy"}
                 </button>
@@ -226,7 +252,7 @@ function FormattedMessage({ text, isDark }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  TOAST  (slides in from top-right)
+//  TOAST
 // ─────────────────────────────────────────────────────────────────
 function Toast({ toasts, remove, isDark }) {
   const icons = { success: "✅", error: "❌", info: "ℹ️", warning: "⚠️" };
@@ -237,26 +263,32 @@ function Toast({ toasts, remove, isDark }) {
     warning: "border-l-yellow-400",
   };
   return (
-    <div className="fixed top-5 right-5 flex flex-col gap-2 z-[9999]">
+    <div className="fixed top-4 right-4 flex flex-col gap-2 z-[9999] max-w-[calc(100vw-2rem)]">
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`toast-slide flex items-start gap-3 min-w-[260px] max-w-xs border ${borders[t.type]} border-l-4 rounded-xl px-4 py-3 shadow-2xl ${isDark ? "bg-[#1e293b] border-[#334155]" : "bg-white border-slate-200"}`}
+          className={`toast-slide flex items-start gap-3 min-w-[220px] max-w-xs border ${borders[t.type]} border-l-4 rounded-xl px-4 py-3 shadow-2xl ${
+            isDark
+              ? "bg-[#1e293b] border-[#334155]"
+              : "bg-white border-slate-200"
+          }`}
         >
           <span className="text-base shrink-0">{icons[t.type]}</span>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <p
               className={`font-semibold text-[13px] ${isDark ? "text-white" : "text-slate-800"}`}
             >
               {t.title}
             </p>
             {t.msg && (
-              <p className="text-[12px] text-slate-400 mt-0.5">{t.msg}</p>
+              <p className="text-[12px] text-slate-400 mt-0.5 break-words">
+                {t.msg}
+              </p>
             )}
           </div>
           <button
             onClick={() => remove(t.id)}
-            className="text-slate-400 hover:text-red-400 text-xs ml-1"
+            className="text-slate-400 hover:text-red-400 text-xs ml-1 shrink-0"
           >
             ✕
           </button>
@@ -267,7 +299,7 @@ function Toast({ toasts, remove, isDark }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  UPLOAD OVERLAY  (smooth animated progress bar)
+//  UPLOAD OVERLAY
 // ─────────────────────────────────────────────────────────────────
 function UploadOverlay({
   stage,
@@ -305,12 +337,13 @@ function UploadOverlay({
   const s = stages[stage];
 
   return (
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center">
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[#0f172a]/85 backdrop-blur-md" />
       <div
-        className={`relative z-10 flex flex-col items-center gap-5 rounded-2xl px-10 py-9 shadow-2xl min-w-[340px] border ${isDark ? "bg-[#1e293b] border-[#334155]" : "bg-white border-slate-200"}`}
+        className={`relative z-10 flex flex-col items-center gap-5 rounded-2xl px-6 sm:px-10 py-9 shadow-2xl w-full max-w-sm border ${
+          isDark ? "bg-[#1e293b] border-[#334155]" : "bg-white border-slate-200"
+        }`}
       >
-        {/* Pulse ring + icon */}
         <div className="relative flex items-center justify-center w-20 h-20">
           {stage !== "ready" && (
             <div
@@ -329,7 +362,6 @@ function UploadOverlay({
           </div>
         </div>
 
-        {/* Label */}
         <div className="text-center">
           <p
             className={`font-bold text-[17px] ${isDark ? "text-white" : "text-slate-800"}`}
@@ -339,7 +371,6 @@ function UploadOverlay({
           <p className="text-slate-400 text-sm mt-1">{s.sub}</p>
         </div>
 
-        {/* Smooth progress bar */}
         <div className="w-full">
           <div
             className={`w-full h-2.5 rounded-full overflow-hidden ${isDark ? "bg-[#334155]" : "bg-slate-200"}`}
@@ -366,7 +397,6 @@ function UploadOverlay({
           </div>
         </div>
 
-        {/* Processing dots */}
         {stage === "processing" && (
           <div className="flex gap-2">
             {[0, 150, 300, 450].map((d) => (
@@ -379,7 +409,6 @@ function UploadOverlay({
           </div>
         )}
 
-        {/* Cancel */}
         {stage === "uploading" && (
           <button
             onClick={onCancel}
@@ -394,7 +423,7 @@ function UploadOverlay({
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  PROFILE DROPDOWN  (sign out only)
+//  PROFILE DROPDOWN
 // ─────────────────────────────────────────────────────────────────
 function ProfileDropdown({ user, onClose, onSignOut, isDark }) {
   const ref = useRef(null);
@@ -409,7 +438,9 @@ function ProfileDropdown({ user, onClose, onSignOut, isDark }) {
   return (
     <div
       ref={ref}
-      className={`absolute right-0 top-12 w-56 rounded-2xl shadow-2xl z-50 overflow-hidden animate-drop-in border ${isDark ? "bg-[#1e293b] border-[#334155]" : "bg-white border-slate-200"}`}
+      className={`absolute right-0 top-12 w-56 rounded-2xl shadow-2xl z-50 overflow-hidden animate-drop-in border ${
+        isDark ? "bg-[#1e293b] border-[#334155]" : "bg-white border-slate-200"
+      }`}
     >
       <div
         className={`px-4 py-4 border-b flex items-center gap-3 ${isDark ? "border-[#334155]" : "border-slate-100"}`}
@@ -454,14 +485,22 @@ function ProfileButton({ user, onSignOut, isDark }) {
     <div className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-2 rounded-full border transition-all p-0.5 pr-3 group ${isDark ? "border-[#334155] hover:border-slate-500" : "border-slate-300 hover:border-slate-400"}`}
+        className={`flex items-center gap-2 rounded-full border transition-all p-0.5 pr-2 sm:pr-3 group ${
+          isDark
+            ? "border-[#334155] hover:border-slate-500"
+            : "border-slate-300 hover:border-slate-400"
+        }`}
         title={user.email}
       >
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
           {emailInitial(user.email)}
         </div>
         <span
-          className={`text-[13px] transition-colors hidden sm:block max-w-[110px] truncate ${isDark ? "text-slate-300 group-hover:text-white" : "text-slate-600 group-hover:text-slate-900"}`}
+          className={`text-[13px] transition-colors hidden sm:block max-w-[80px] lg:max-w-[110px] truncate ${
+            isDark
+              ? "text-slate-300 group-hover:text-white"
+              : "text-slate-600 group-hover:text-slate-900"
+          }`}
         >
           {displayName}
         </span>
@@ -498,7 +537,11 @@ function TypingIndicator({ isDark }) {
   return (
     <div className="self-start">
       <div
-        className={`flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-bl-sm w-fit border ${isDark ? "bg-[#263348] border-[#334155]" : "bg-white border-slate-200 shadow-sm"}`}
+        className={`flex items-center gap-1.5 px-4 py-3 rounded-2xl rounded-bl-sm w-fit border ${
+          isDark
+            ? "bg-[#263348] border-[#334155]"
+            : "bg-white border-slate-200 shadow-sm"
+        }`}
       >
         {[0, 200, 400].map((delay) => (
           <span
@@ -513,16 +556,18 @@ function TypingIndicator({ isDark }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-//  MESSAGE BUBBLE
+//  MESSAGE BUBBLE  — both user & bot use FormattedMessage
 // ─────────────────────────────────────────────────────────────────
 function Message({ msg, isDark }) {
   const isUser = msg.role === "user";
   return (
     <div
-      className={`flex flex-col max-w-[78%] animate-fade-up ${isUser ? "self-end items-end" : "self-start items-start"}`}
+      className={`flex flex-col max-w-[90%] sm:max-w-[80%] md:max-w-[75%] animate-fade-up ${
+        isUser ? "self-end items-end" : "self-start items-start"
+      }`}
     >
       <div
-        className={`px-4 py-3 rounded-2xl text-sm leading-relaxed break-words ${
+        className={`px-4 py-3 rounded-2xl text-sm leading-relaxed break-words w-full ${
           isUser
             ? "bg-blue-500 text-white rounded-br-sm"
             : msg.mode === "smart"
@@ -534,17 +579,17 @@ function Message({ msg, isDark }) {
                 : "bg-white text-slate-800 rounded-bl-sm border border-slate-200 shadow-sm"
         }`}
       >
-        {isUser ? (
-          <span>{msg.text}</span>
-        ) : (
-          <FormattedMessage text={msg.text} isDark={isDark} />
-        )}
+        <FormattedMessage text={msg.text} isDark={isDark} isUser={isUser} />
       </div>
       <div className="flex items-center gap-1.5 mt-1 px-1">
         <span className="text-[10px] text-slate-500">{msg.time}</span>
         {!isUser && (
           <span
-            className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${msg.mode === "rag" ? "bg-blue-900/50 text-blue-400" : "bg-violet-900/50 text-violet-400"}`}
+            className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+              msg.mode === "rag"
+                ? "bg-blue-900/50 text-blue-400"
+                : "bg-violet-900/50 text-violet-400"
+            }`}
           >
             {msg.mode}
           </span>
@@ -560,15 +605,92 @@ function Message({ msg, isDark }) {
 function HistoryItem({ item, isDark }) {
   return (
     <div
-      className={`px-3 py-2.5 mb-1.5 rounded-lg cursor-pointer border transition-all ${isDark ? "bg-[#263348] border-transparent hover:border-[#334155] hover:bg-[#2d3d55]" : "bg-slate-100 border-transparent hover:border-slate-300 hover:bg-slate-200"}`}
+      className={`px-3 py-2.5 mb-1.5 rounded-lg cursor-pointer border transition-all ${
+        isDark
+          ? "bg-[#263348] border-transparent hover:border-[#334155] hover:bg-[#2d3d55]"
+          : "bg-slate-100 border-transparent hover:border-slate-300 hover:bg-slate-200"
+      }`}
     >
       <div
-        className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${item.mode === "rag" ? "text-blue-400" : "text-violet-400"}`}
+        className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${
+          item.mode === "rag" ? "text-blue-400" : "text-violet-400"
+        }`}
       >
         {item.mode}
       </div>
       <div className="text-xs text-slate-400 truncate">{item.text}</div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  MOBILE SIDEBAR DRAWER  (slides from left over content)
+// ─────────────────────────────────────────────────────────────────
+function MobileSidebar({ open, onClose, history, onClearHistory, isDark }) {
+  const border = isDark ? "border-[#334155]" : "border-slate-200";
+  const surface = isDark ? "bg-[#1e293b]" : "bg-white";
+  const textSub = isDark ? "text-slate-400" : "text-slate-500";
+
+  return (
+    <>
+      {/* Backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm"
+          onClick={onClose}
+        />
+      )}
+      {/* Drawer */}
+      <div
+        className={`fixed top-0 left-0 h-full w-72 z-[201] flex flex-col ${surface} border-r ${border} shadow-2xl transition-transform duration-300 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div
+          className={`flex items-center justify-between px-4 py-4 border-b ${border}`}
+        >
+          <span
+            className={`text-xs font-semibold uppercase tracking-widest ${textSub}`}
+          >
+            History
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClearHistory}
+              className={`text-[11px] border px-2 py-1 rounded-md transition-all ${
+                isDark
+                  ? "text-slate-500 border-[#334155] hover:text-red-400 hover:border-red-400"
+                  : "text-slate-400 border-slate-200 hover:text-red-500 hover:border-red-400"
+              }`}
+            >
+              Clear
+            </button>
+            <button
+              onClick={onClose}
+              className={`w-7 h-7 flex items-center justify-center rounded-lg ${isDark ? "text-slate-400 hover:text-white hover:bg-[#334155]" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"}`}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2.5">
+          {history.length === 0 ? (
+            <p className={`text-xs text-center mt-8 ${textSub}`}>
+              No history yet
+            </p>
+          ) : (
+            history.map((item) => (
+              <HistoryItem key={item.id} item={item} isDark={isDark} />
+            ))
+          )}
+        </div>
+        <div className={`px-4 py-3 border-t ${border} text-center`}>
+          <span className="inline-block bg-green-900/30 text-green-400 border border-green-500/20 rounded-md px-2.5 py-1 text-[11px]">
+            ✦ Session Active
+          </span>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -579,6 +701,7 @@ export default function AIRagAssistant() {
   const [mode, setMode] = useState("rag");
   const [isDark, setIsDark] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
@@ -605,6 +728,15 @@ export default function AIRagAssistant() {
   const fileInputRef = useRef(null);
   const accentColor = mode === "rag" ? "#3b82f6" : "#8b5cf6";
 
+  // Detect mobile: hide desktop sidebar on small screens
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   useEffect(() => {
     if (!localStorage.getItem("token")) navigate("/login");
   }, [navigate]);
@@ -617,7 +749,6 @@ export default function AIRagAssistant() {
 
   const removeToast = (id) => setToasts((t) => t.filter((x) => x.id !== id));
 
-  // ── On mount: read toast flag + load user ──
   useEffect(() => {
     const toast = localStorage.getItem("toast");
     if (toast === "login")
@@ -632,10 +763,7 @@ export default function AIRagAssistant() {
   useEffect(() => {
     (async () => {
       try {
-        // TODO: replace with real API → const { data } = await getMe();
-        // setUser({ name: data.name, email: data.email, role: data.role, avatar: null });
         const { data } = await getMe();
-
         setUser({
           name: data.name,
           email: data.email,
@@ -661,7 +789,6 @@ export default function AIRagAssistant() {
     navigate("/login");
   };
 
-  // ── Smooth progress driver ──
   const startProgress = useCallback((from, to, durationMs, onDone) => {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
     setSimulatedPercent(from);
@@ -676,7 +803,6 @@ export default function AIRagAssistant() {
         clearInterval(progressIntervalRef.current);
         return;
       }
-      // Easing: fast at start, slows near end
       const remaining = to - current;
       const jitter = (Math.random() - 0.3) * baseIncrement * 0.4;
       const step =
@@ -714,30 +840,23 @@ export default function AIRagAssistant() {
     setFileName(file.name);
     setSimulatedPercent(0);
     setUploadStage("uploading");
-
-    // Uploading: 0→90% over ~6s (smooth, with easing)
     startProgress(0, 90, 6000);
 
     try {
       await uploadDocument(file, () => {});
       if (cancelRef.current) return;
 
-      // Snap to 100% quickly
       startProgress(90, 100, 500, () => {
         if (cancelRef.current) return;
         setDocumentUploaded(true);
-
-        // Processing: 0→100% over ~8s
         setUploadStage("processing");
         startProgress(0, 100, 8000, () => {
           if (cancelRef.current) return;
-
-          // Ready: hold at 100% for 2.5s then dismiss
           setUploadStage("ready");
           const t = setTimeout(() => {
             if (cancelRef.current) return;
             setUploadStage(null);
-            setFileName(null); // ← clear file chip
+            setFileName(null);
             setSimulatedPercent(0);
             addToast(
               "success",
@@ -812,7 +931,7 @@ export default function AIRagAssistant() {
     addToast("success", "History cleared", "All previous chats removed");
   };
 
-  // ── Theming shorthands ──
+  // Theme shorthands
   const bg = isDark ? "bg-[#0f172a]" : "bg-slate-100";
   const surface = isDark ? "bg-[#1e293b]" : "bg-white";
   const border = isDark ? "border-[#334155]" : "border-slate-200";
@@ -825,25 +944,28 @@ export default function AIRagAssistant() {
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
 
         *, *::before, *::after { font-family: 'DM Sans', sans-serif; box-sizing: border-box; }
-        code, pre, .font-mono { font-family: 'JetBrains Mono', monospace !important; }
+        code, pre, .font-mono  { font-family: 'JetBrains Mono', monospace !important; }
 
-        @keyframes fadeUp    { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes dropIn    { from { opacity:0; transform:translateY(-8px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+        @keyframes fadeUp     { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes dropIn     { from { opacity:0; transform:translateY(-8px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
         @keyframes toastSlide { from { opacity:0; transform:translateX(110%); } to { opacity:1; transform:translateX(0); } }
 
-        .animate-fade-up { animation: fadeUp 0.3s ease both; }
-        .animate-drop-in { animation: dropIn 0.2s ease both; }
+        .animate-fade-up { animation: fadeUp  0.3s ease both; }
+        .animate-drop-in { animation: dropIn  0.2s ease both; }
         .toast-slide     { animation: toastSlide 0.4s cubic-bezier(.22,.68,0,1.2) both; }
 
-        textarea::-webkit-scrollbar, pre::-webkit-scrollbar { width: 4px; height: 4px; }
+        textarea::-webkit-scrollbar, pre::-webkit-scrollbar { width:4px; height:4px; }
         textarea::-webkit-scrollbar-thumb, pre::-webkit-scrollbar-thumb { background:#334155; border-radius:4px; }
         .chat-scroll::-webkit-scrollbar { width:4px; }
         .chat-scroll::-webkit-scrollbar-thumb { background:#334155; border-radius:4px; }
         .sidebar-scroll::-webkit-scrollbar { width:4px; }
         .sidebar-scroll::-webkit-scrollbar-thumb { background:#334155; border-radius:4px; }
 
+        /* Prevent iOS bounce / zoom on textarea */
+        textarea { font-size: 16px !important; }
+
         /* Theme toggle */
-        .theme-toggle { position:relative; width:50px; height:26px; cursor:pointer; display:inline-block; }
+        .theme-toggle { position:relative; width:50px; height:26px; cursor:pointer; display:inline-block; flex-shrink:0; }
         .theme-toggle input { opacity:0; width:0; height:0; position:absolute; }
         .toggle-track {
           position:absolute; inset:0; border-radius:13px;
@@ -857,7 +979,21 @@ export default function AIRagAssistant() {
           font-size:11px; box-shadow:0 1px 4px rgba(0,0,0,.25);
         }
         .theme-toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(24px); }
+
+        /* Safe area for mobile notch / home bar */
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
       `}</style>
+
+      {/* Mobile sidebar drawer */}
+      {isMobile && (
+        <MobileSidebar
+          open={mobileSidebarOpen}
+          onClose={() => setMobileSidebarOpen(false)}
+          history={history}
+          onClearHistory={handleClearHistory}
+          isDark={isDark}
+        />
+      )}
 
       <UploadOverlay
         stage={uploadStage}
@@ -868,77 +1004,103 @@ export default function AIRagAssistant() {
       />
       <Toast toasts={toasts} remove={removeToast} isDark={isDark} />
 
-      <div className={`flex h-screen ${bg} ${textMain} overflow-hidden`}>
-        {/* ══ SIDEBAR ══ */}
-        <aside
-          className={`flex flex-col ${surface} border-r ${border} transition-all duration-300 overflow-hidden flex-shrink-0 ${sidebarOpen ? "w-64" : "w-0 opacity-0"}`}
-        >
-          <div
-            className={`flex items-center justify-between px-4 py-4 border-b ${border}`}
+      <div
+        className={`flex h-screen h-[100dvh] ${bg} ${textMain} overflow-hidden`}
+      >
+        {/* ══ DESKTOP SIDEBAR ══ */}
+        {!isMobile && (
+          <aside
+            className={`flex flex-col ${surface} border-r ${border} transition-all duration-300 overflow-hidden flex-shrink-0 ${
+              sidebarOpen ? "w-64" : "w-0 opacity-0"
+            }`}
           >
-            <span
-              className={`text-xs font-semibold uppercase tracking-widest ${textSub}`}
+            <div
+              className={`flex items-center justify-between px-4 py-4 border-b ${border}`}
             >
-              History
-            </span>
-            <button
-              onClick={handleClearHistory}
-              className={`text-[11px] border px-2 py-1 rounded-md transition-all ${isDark ? "text-slate-500 border-[#334155] hover:text-red-400 hover:border-red-400" : "text-slate-400 border-slate-200 hover:text-red-500 hover:border-red-400"}`}
-            >
-              Clear
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto sidebar-scroll p-2.5">
-            {history.length === 0 ? (
-              <p className={`text-xs text-center mt-8 ${textSub}`}>
-                No history yet
-              </p>
-            ) : (
-              history.map((item) => (
-                <HistoryItem key={item.id} item={item} isDark={isDark} />
-              ))
-            )}
-          </div>
-          <div className={`px-4 py-3 border-t ${border} text-center`}>
-            <span className="inline-block bg-green-900/30 text-green-400 border border-green-500/20 rounded-md px-2.5 py-1 text-[11px]">
-              ✦ Session Active
-            </span>
-          </div>
-        </aside>
+              <span
+                className={`text-xs font-semibold uppercase tracking-widest ${textSub}`}
+              >
+                History
+              </span>
+              <button
+                onClick={handleClearHistory}
+                className={`text-[11px] border px-2 py-1 rounded-md transition-all ${
+                  isDark
+                    ? "text-slate-500 border-[#334155] hover:text-red-400 hover:border-red-400"
+                    : "text-slate-400 border-slate-200 hover:text-red-500 hover:border-red-400"
+                }`}
+              >
+                Clear
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto sidebar-scroll p-2.5">
+              {history.length === 0 ? (
+                <p className={`text-xs text-center mt-8 ${textSub}`}>
+                  No history yet
+                </p>
+              ) : (
+                history.map((item) => (
+                  <HistoryItem key={item.id} item={item} isDark={isDark} />
+                ))
+              )}
+            </div>
+            <div className={`px-4 py-3 border-t ${border} text-center`}>
+              <span className="inline-block bg-green-900/30 text-green-400 border border-green-500/20 rounded-md px-2.5 py-1 text-[11px]">
+                ✦ Session Active
+              </span>
+            </div>
+          </aside>
+        )}
 
         {/* ══ MAIN ══ */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* ── HEADER ── */}
           <header
-            className={`flex items-center gap-3 px-5 py-3.5 ${surface} border-b ${border} shrink-0`}
+            className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-3.5 ${surface} border-b ${border} shrink-0`}
           >
+            {/* Hamburger — desktop toggles sidebar, mobile opens drawer */}
             <button
-              onClick={() => setSidebarOpen((o) => !o)}
-              className={`w-9 h-9 rounded-lg border ${border} transition-all flex items-center justify-center text-base ${isDark ? "text-slate-300 hover:bg-[#334155]" : "text-slate-600 hover:bg-slate-100"}`}
+              onClick={() =>
+                isMobile
+                  ? setMobileSidebarOpen(true)
+                  : setSidebarOpen((o) => !o)
+              }
+              className={`w-9 h-9 rounded-lg border ${border} transition-all flex items-center justify-center text-base shrink-0 ${
+                isDark
+                  ? "text-slate-300 hover:bg-[#334155]"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
             >
               ☰
             </button>
 
-            <div className="flex items-center gap-2 font-semibold text-base">
+            {/* Brand */}
+            <div className="flex items-center gap-2 font-semibold text-sm sm:text-base min-w-0">
               <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-white transition-all duration-300"
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold text-white transition-all duration-300 shrink-0"
                 style={{ background: accentColor }}
               >
                 ✦
               </div>
-              <span>RAG Assistant</span>
+              <span className="truncate hidden xs:block sm:block">
+                RAG Assistant
+              </span>
             </div>
 
-            <div className="flex items-center gap-3 ml-auto">
-              {/* Mode toggle */}
+            <div className="flex items-center gap-1.5 sm:gap-3 ml-auto">
+              {/* Mode toggle — compact on mobile */}
               <div
-                className={`flex items-center gap-1 rounded-xl p-1 border ${isDark ? "bg-[#0f172a] border-[#334155]" : "bg-slate-100 border-slate-200"}`}
+                className={`flex items-center gap-0.5 sm:gap-1 rounded-xl p-0.5 sm:p-1 border ${
+                  isDark
+                    ? "bg-[#0f172a] border-[#334155]"
+                    : "bg-slate-100 border-slate-200"
+                }`}
               >
                 {["rag", "smart"].map((m) => (
                   <button
                     key={m}
                     onClick={() => setMode(m)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all ${
+                    className={`px-2 sm:px-3.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all ${
                       mode === m
                         ? m === "rag"
                           ? "bg-blue-500 text-white shadow"
@@ -982,7 +1144,7 @@ export default function AIRagAssistant() {
           {/* ── CHAT ── */}
           <div
             ref={chatRef}
-            className="flex-1 overflow-y-auto chat-scroll px-6 py-5 flex flex-col gap-3"
+            className="flex-1 overflow-y-auto chat-scroll px-3 sm:px-6 py-4 sm:py-5 flex flex-col gap-3"
           >
             {messages.length === 0 && (
               <div className="flex-1 flex flex-col items-center justify-center gap-3 opacity-25 select-none">
@@ -992,7 +1154,7 @@ export default function AIRagAssistant() {
                 >
                   ✦
                 </div>
-                <p className="text-sm font-medium">
+                <p className="text-sm font-medium text-center px-4">
                   Ask something to get started
                 </p>
               </div>
@@ -1004,18 +1166,23 @@ export default function AIRagAssistant() {
           </div>
 
           {/* ── INPUT BAR ── */}
-          <div className={`px-5 py-4 ${surface} border-t ${border} shrink-0`}>
-            {/* File chip — only shown when no overlay is active */}
+          <div
+            className={`px-3 sm:px-5 py-3 sm:py-4 ${surface} border-t ${border} shrink-0 safe-bottom`}
+          >
+            {/* File chip */}
             {fileName && !uploadStage && (
-              <div className="flex items-center gap-2 mb-2.5">
-                <span className="text-[11px] bg-blue-900/30 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded-full flex items-center gap-1.5">
-                  📄 {fileName}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[11px] bg-blue-900/30 text-blue-400 border border-blue-500/20 px-2.5 py-1 rounded-full flex items-center gap-1.5 max-w-full truncate">
+                  📄{" "}
+                  <span className="truncate max-w-[160px] sm:max-w-[260px]">
+                    {fileName}
+                  </span>
                   <button
                     onClick={() => {
                       setFileName(null);
                       setDocumentUploaded(false);
                     }}
-                    className="ml-1 text-blue-300 hover:text-white"
+                    className="ml-1 text-blue-300 hover:text-white shrink-0"
                   >
                     ✕
                   </button>
@@ -1023,10 +1190,14 @@ export default function AIRagAssistant() {
               </div>
             )}
 
-            <div className="flex items-end gap-2.5">
+            <div className="flex items-end gap-2">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className={`w-10 h-10 rounded-xl border ${border} transition-all flex items-center justify-center text-base shrink-0 ${isDark ? "text-slate-400 hover:text-white hover:bg-[#334155]" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"}`}
+                className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl border ${border} transition-all flex items-center justify-center text-base shrink-0 ${
+                  isDark
+                    ? "text-slate-400 hover:text-white hover:bg-[#334155]"
+                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+                }`}
                 title="Upload document"
               >
                 📎
@@ -1069,7 +1240,11 @@ export default function AIRagAssistant() {
                       ? "Ask about your document…"
                       : "Ask anything…"
                   }
-                  className={`flex-1 bg-transparent resize-none px-4 py-2.5 text-sm outline-none max-h-36 ${isDark ? "text-slate-200 placeholder-slate-500" : "text-slate-800 placeholder-slate-400"}`}
+                  className={`flex-1 bg-transparent resize-none px-3 sm:px-4 py-2 sm:py-2.5 outline-none max-h-32 sm:max-h-36 ${
+                    isDark
+                      ? "text-slate-200 placeholder-slate-500"
+                      : "text-slate-800 placeholder-slate-400"
+                  }`}
                   style={{ scrollbarWidth: "thin" }}
                 />
               </div>
@@ -1077,7 +1252,7 @@ export default function AIRagAssistant() {
               <button
                 onClick={handleSend}
                 disabled={!input.trim()}
-                className="w-10 h-10 rounded-xl flex items-center justify-center transition-all shrink-0 text-white disabled:opacity-30"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all shrink-0 text-white disabled:opacity-30"
                 style={{
                   background: input.trim()
                     ? accentColor
