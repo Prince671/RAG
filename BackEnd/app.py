@@ -243,50 +243,61 @@ def preview_document(doc_id):
 
 # ================= UPLOAD =================
 
-@app.route("/upload", methods=["POST", "OPTIONS"])
+@app.route("/upload", methods=["POST"])
 def upload():
-    if request.method == "OPTIONS":
-        return {"message": "OK"}, 200
     try:
-        print("🔥 Upload started")
+        print("🔥 STEP 0: Upload hit")
 
+        # TOKEN
         auth_header = request.headers.get("Authorization")
+        print("STEP 1 AUTH:", auth_header)
+
         if not auth_header:
             return jsonify({"error": "Missing token"}), 401
 
         user_id = getIDFromToken(auth_header)
-        print("USER:", user_id)
+        print("STEP 2 USER:", user_id)
 
-        file = request.files.get("file")
-        if not file:
-            return jsonify({"error": "No file uploaded"}), 400
+        # FILE
+        if "file" not in request.files:
+            print("STEP 3: file key missing")
+            return jsonify({"error": "No file key"}), 400
 
-        print("FILE:", file.filename)
+        file = request.files["file"]
+        print("STEP 4 FILE:", file.filename)
 
+        # SAVE
         import tempfile
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             file.save(tmp.name)
             path = tmp.name
 
-        print("PATH:", path)
+        print("STEP 5 PATH:", path)
 
+        # LOAD PDF
         loader = PyPDFLoader(path)
         docs = loader.load()
-        print("DOCS:", len(docs))
+        print("STEP 6 DOCS:", len(docs))
 
+        # SPLIT
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=800,
             chunk_overlap=150
         )
         chunks = splitter.split_documents(docs)
-        print("CHUNKS:", len(chunks))
+        print("STEP 7 CHUNKS:", len(chunks))
 
+        # EMBEDDING TEST (IMPORTANT)
+        print("STEP 8 EMBEDDING TEST")
+        test_embedding = embedding_model.embed_query("test")
+        print("STEP 9 EMBEDDING OK")
+
+        # UPSERT TEST
         import uuid
         doc_id = str(uuid.uuid4())
 
         vectors = []
-
-        for i, chunk in enumerate(chunks):
+        for i, chunk in enumerate(chunks[:2]):  # 🔥 only 2 chunks (safe test)
             embedding = embedding_model.embed_query(chunk.page_content)
 
             vectors.append({
@@ -294,27 +305,16 @@ def upload():
                 "values": embedding,
                 "metadata": {
                     "user_id": user_id,
-                    "doc_id": doc_id,
                     "text": chunk.page_content
                 }
             })
 
-        print("UPSERT:", len(vectors))
+        print("STEP 10 UPSERT")
         index.upsert(vectors)
 
-        db.documents.insert_one({
-            "doc_id": doc_id,
-            "user_id": user_id,
-            "filename": file.filename,
-            "file_path": path,
-            "uploaded_at": datetime.utcnow(),
-            "chunks": len(chunks)
-        })
+        print("STEP 11 DONE")
 
-        return jsonify({
-            "message": "Document uploaded successfully",
-            "doc_id": doc_id
-        })
+        return jsonify({"message": "Upload success"})
 
     except Exception as e:
         print("❌ UPLOAD ERROR:", str(e))
