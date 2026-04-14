@@ -376,7 +376,7 @@ def ask():
         # 🔥 STEP 1: CHECK IF USER HAS DOCUMENTS
         user_docs = db.documents.find_one({"user_id": user_id})
 
-        if not user_docs:
+        if not user_docs and mode=="rag":
             return jsonify({
                 "answer": "⚠️ You have not uploaded any document yet. Please upload a document first."
             })
