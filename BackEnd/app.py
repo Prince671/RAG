@@ -246,58 +246,72 @@ def preview_document(doc_id):
 @app.route("/upload", methods=["POST"])
 def upload():
     try:
-        print("🔥 STEP 0: Upload hit")
+        print("🚀 Upload request received")
 
-        # TOKEN
+        # 🔐 AUTH VALIDATION
         auth_header = request.headers.get("Authorization")
-        print("STEP 1 AUTH:", auth_header)
-
         if not auth_header:
             return jsonify({"error": "Missing token"}), 401
 
         user_id = getIDFromToken(auth_header)
-        print("STEP 2 USER:", user_id)
+        if not user_id:
+            return jsonify({"error": "Invalid token"}), 401
 
-        # FILE
-        if "file" not in request.files:
-            print("STEP 3: file key missing")
-            return jsonify({"error": "No file key"}), 400
+        print("👤 USER:", user_id)
 
-        file = request.files["file"]
-        print("STEP 4 FILE:", file.filename)
+        # 📄 FILE VALIDATION
+        file = request.files.get("file")
+        if not file:
+            return jsonify({"error": "No file uploaded"}), 400
 
-        # SAVE
+        if file.filename == "":
+            return jsonify({"error": "Empty filename"}), 400
+
+        filename = file.filename.lower()
+
+        # 🔒 ALLOW ONLY PDF
+        if not filename.endswith(".pdf"):
+            return jsonify({"error": "Only PDF files are allowed"}), 400
+
+        print("📄 FILE:", filename)
+
+        # 📁 SAVE FILE (TEMP)
         import tempfile
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             file.save(tmp.name)
-            path = tmp.name
+            file_path = tmp.name
 
-        print("STEP 5 PATH:", path)
+        print("📁 PATH:", file_path)
 
-        # LOAD PDF
-        loader = PyPDFLoader(path)
+        # 📚 LOAD PDF
+        loader = PyPDFLoader(file_path)
         docs = loader.load()
-        print("STEP 6 DOCS:", len(docs))
 
-        # SPLIT
+        if not docs:
+            return jsonify({"error": "Failed to read PDF"}), 400
+
+        print("📚 DOCS:", len(docs))
+
+        # ✂️ SPLIT DOCUMENT
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=800,
             chunk_overlap=150
         )
         chunks = splitter.split_documents(docs)
-        print("STEP 7 CHUNKS:", len(chunks))
 
-        # EMBEDDING TEST (IMPORTANT)
-        print("STEP 8 EMBEDDING TEST")
-        test_embedding = embedding_model.embed_query("test")
-        print("STEP 9 EMBEDDING OK")
+        if not chunks:
+            return jsonify({"error": "No readable content found"}), 400
 
-        # UPSERT TEST
+        print("✂️ CHUNKS:", len(chunks))
+
+        # 🆔 UNIQUE DOCUMENT ID
         import uuid
         doc_id = str(uuid.uuid4())
 
+        # 🚀 BATCH VECTOR PREPARATION
         vectors = []
-        for i, chunk in enumerate(chunks[:2]):  # 🔥 only 2 chunks (safe test)
+
+        for i, chunk in enumerate(chunks):
             embedding = embedding_model.embed_query(chunk.page_content)
 
             vectors.append({
@@ -305,16 +319,41 @@ def upload():
                 "values": embedding,
                 "metadata": {
                     "user_id": user_id,
+                    "doc_id": doc_id,
                     "text": chunk.page_content
                 }
             })
 
-        print("STEP 10 UPSERT")
+        print("🧠 EMBEDDINGS READY:", len(vectors))
+
+        # 🚀 UPSERT TO PINECONE (BATCH)
         index.upsert(vectors)
 
-        print("STEP 11 DONE")
+        print("📦 STORED IN PINECONE")
 
-        return jsonify({"message": "Upload success"})
+        # 💾 STORE METADATA IN MONGODB
+        from datetime import datetime
+
+        db.documents.insert_one({
+            "doc_id": doc_id,
+            "user_id": user_id,
+            "filename": filename,
+            "file_path": file_path,  # ⚠️ needed for preview
+            "uploaded_at": datetime.utcnow(),
+            "chunks": len(chunks)
+        })
+
+        print("🗄️ STORED IN DB")
+
+        # ❗ OPTIONAL: DO NOT DELETE if preview needed
+        # os.remove(file_path)
+
+        return jsonify({
+            "message": "Document uploaded successfully",
+            "doc_id": doc_id,
+            "filename": filename,
+            "chunks": len(chunks)
+        })
 
     except Exception as e:
         print("❌ UPLOAD ERROR:", str(e))
