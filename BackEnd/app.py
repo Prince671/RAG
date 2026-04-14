@@ -397,7 +397,7 @@ def ask():
         # 🔥 STEP 4: HANDLE NO MATCHES
         matches = results.get("matches", [])
 
-        if not matches:
+        if not matches and mode=="rag" :
             return jsonify({
                 "answer": "⚠️ No relevant information found in your documents."
             })
@@ -409,7 +409,7 @@ def ask():
             if metadata.get("user_id") == user_id:
                 docs.append(metadata.get("text", ""))
 
-        if not docs:
+        if not docs and mode=="rag":
             return jsonify({
                 "answer": "⚠️ No valid data found for your account."
             })
