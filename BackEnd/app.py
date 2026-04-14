@@ -242,79 +242,91 @@ def preview_document(doc_id):
     return send_file(file_path, mimetype="application/pdf")
 
 # ================= UPLOAD =================
-
-
-@app.route("/upload", methods=["POST", "OPTIONS"])
+@app.route("/upload", methods=["POST"])
 def upload():
-
-    # ✅ Handle CORS preflight
-    if request.method == "OPTIONS":
-        return {"message": "OK"}, 200
-
     try:
-        # 🔐 Extract user_id from token
+        # 🔐 TOKEN CHECK (SAFE)
         auth_header = request.headers.get("Authorization")
+
+        if not auth_header:
+            return jsonify({"error": "Missing token"}), 401
+
         user_id = getIDFromToken(auth_header)
 
         if not user_id:
-            return jsonify({"error": "Missing user_id"}), 400
+            return jsonify({"error": "Unauthorized"}), 401
 
-        # 📄 Get file
+        # 📄 FILE CHECK (SAFE)
         file = request.files.get("file")
+
         if not file:
             return jsonify({"error": "No file uploaded"}), 400
 
+        if file.filename == "":
+            return jsonify({"error": "Empty file"}), 400
+
         filename = file.filename
 
-        # 📁 Save temp file
+        # 📁 SAVE TEMP FILE
+        import tempfile
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             file.save(tmp.name)
             path = tmp.name
 
-        # 📚 Load + split
+        print("FILE SAVED:", path)
+
+        # 📚 LOAD PDF
         loader = PyPDFLoader(path)
         docs = loader.load()
 
+        if not docs:
+            return jsonify({"error": "Failed to read PDF"}), 400
+
+        # ✂️ SPLIT
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=800,
             chunk_overlap=150
         )
         chunks = splitter.split_documents(docs)
 
-        # 🔥 CREATE UNIQUE DOCUMENT ID
+        if not chunks:
+            return jsonify({"error": "No content found in document"}), 400
+
+        # 🔥 CREATE DOCUMENT ID
+        import uuid
         doc_id = str(uuid.uuid4())
 
-        # 🚀 BATCH UPSERT (FASTER)
+        # 🚀 PREPARE VECTORS
         vectors = []
 
         for i, chunk in enumerate(chunks):
             embedding = embedding_model.embed_query(chunk.page_content)
 
             vectors.append({
-                "id": f"{doc_id}_{i}",   # ✅ unique per document
+                "id": f"{doc_id}_{i}",
                 "values": embedding,
                 "metadata": {
                     "user_id": user_id,
-                    "doc_id": doc_id,    # 🔥 IMPORTANT
+                    "doc_id": doc_id,
                     "text": chunk.page_content
                 }
             })
 
-        # 🔥 Upload all at once (FASTER)
+        # 🚀 UPSERT
         index.upsert(vectors)
-        file_path=path
-        # 💾 SAVE DOCUMENT METADATA (MongoDB)
+
+        # 💾 SAVE METADATA
         db.documents.insert_one({
             "doc_id": doc_id,
             "user_id": user_id,
             "filename": filename,
-            "file_path":file_path,
+            "file_path": path,   # ⚠️ keep if you want preview
             "uploaded_at": datetime.utcnow(),
             "chunks": len(chunks)
         })
 
-        # 🧹 Clean temp file
-        os.remove(path)
+        # ❌ DO NOT DELETE FILE (IMPORTANT FOR PREVIEW)
+        # os.remove(path)
 
         return jsonify({
             "message": "Document uploaded successfully",
@@ -323,9 +335,9 @@ def upload():
         })
 
     except Exception as e:
-        print("UPLOAD ERROR:", str(e))
+        print("UPLOAD ERROR:", str(e))  # 🔥 CHECK IN RENDER LOGS
         return jsonify({"error": str(e)}), 500
-
+        
 @app.route("/me", methods=["GET"])
 def get_me():
     try:
