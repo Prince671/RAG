@@ -1,5 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { logout, uploadDocument, askQuestion, getMe } from "./api";
+import {
+  logout,
+  uploadDocument,
+  askQuestion,
+  getMe,
+  getDocuments,
+} from "./api";
 import { useNavigate } from "react-router-dom";
 
 // ─────────────────────────────────────────────────────────────────
@@ -425,7 +431,7 @@ function UploadOverlay({
 // ─────────────────────────────────────────────────────────────────
 //  PROFILE DROPDOWN
 // ─────────────────────────────────────────────────────────────────
-function ProfileDropdown({ user, onClose, onSignOut, isDark }) {
+function ProfileDropdown({ user, onClose, onSignOut, isDark, navigate }) {
   const ref = useRef(null);
   useEffect(() => {
     const h = (e) => {
@@ -464,6 +470,18 @@ function ProfileDropdown({ user, onClose, onSignOut, isDark }) {
       </div>
       <div className="py-1.5">
         <button
+          onClick={() => {
+            navigate("/documents");
+            onClose();
+          }}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 transition-colors text-left"
+        >
+          <span className="text-base w-5 text-center">📄</span>
+          My Documents
+        </button>
+      </div>
+      <div className="py-1.5">
+        <button
           onClick={onSignOut}
           className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors text-left"
         >
@@ -478,7 +496,7 @@ function ProfileDropdown({ user, onClose, onSignOut, isDark }) {
 // ─────────────────────────────────────────────────────────────────
 //  PROFILE BUTTON
 // ─────────────────────────────────────────────────────────────────
-function ProfileButton({ user, onSignOut, isDark }) {
+function ProfileButton({ user, onSignOut, isDark, navigate }) {
   const [open, setOpen] = useState(false);
   const displayName = user.email ? user.email.split("@")[0] : user.name;
   return (
@@ -524,6 +542,7 @@ function ProfileButton({ user, onSignOut, isDark }) {
           onClose={() => setOpen(false)}
           onSignOut={onSignOut}
           isDark={isDark}
+          navigate={navigate}
         />
       )}
     </div>
@@ -698,12 +717,19 @@ function MobileSidebar({ open, onClose, history, onClearHistory, isDark }) {
 //  MAIN
 // ─────────────────────────────────────────────────────────────────
 export default function AIRagAssistant() {
-  const [mode, setMode] = useState("rag");
+  const [mode, setMode] = useState(
+    () => localStorage.getItem("chat_mode") || "rag",
+  );
   const [isDark, setIsDark] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem("chat_messages");
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [input, setInput] = useState(
+    () => localStorage.getItem("chat_input") || "",
+  );
   const [typing, setTyping] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [toasts, setToasts] = useState([]);
@@ -723,7 +749,10 @@ export default function AIRagAssistant() {
     role: "",
     avatar: null,
   });
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(() => {
+    const saved = localStorage.getItem("chat_history");
+    return saved ? JSON.parse(saved) : [];
+  });
   const chatRef = useRef(null);
   const fileInputRef = useRef(null);
   const accentColor = mode === "rag" ? "#3b82f6" : "#8b5cf6";
@@ -740,6 +769,22 @@ export default function AIRagAssistant() {
   useEffect(() => {
     if (!localStorage.getItem("token")) navigate("/login");
   }, [navigate]);
+
+  useEffect(() => {
+    localStorage.setItem("chat_messages", JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+    localStorage.setItem("chat_input", input);
+  }, [input]);
+
+  useEffect(() => {
+    localStorage.setItem("chat_history", JSON.stringify(history));
+  }, [history]);
+
+  useEffect(() => {
+    localStorage.setItem("chat_mode", mode);
+  }, [mode]);
 
   const addToast = useCallback((type, title, msg) => {
     const id = Date.now() + Math.random();
@@ -786,6 +831,11 @@ export default function AIRagAssistant() {
       await logout();
     } catch {}
     localStorage.removeItem("token");
+    localStorage.setItem("toast", "logout");
+    localStorage.removeItem("chat_messages");
+    localStorage.removeItem("chat_input");
+    localStorage.removeItem("chat_history");
+    localStorage.removeItem("chat_mode");
     navigate("/login");
   };
 
@@ -885,7 +935,8 @@ export default function AIRagAssistant() {
 
   const handleSend = async () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || typing) return;
+
     const userMsg = {
       id: Date.now(),
       role: "user",
@@ -893,25 +944,50 @@ export default function AIRagAssistant() {
       time: timestamp(),
       mode,
     };
+
     setMessages((m) => [...m, userMsg]);
     setInput("");
     setHistory((h) => [{ id: Date.now(), mode, text }, ...h.slice(0, 19)]);
     setTyping(true);
+
     try {
       const { data } = await askQuestion(
         text,
         mode === "rag" ? "strict" : "smart",
       );
+
+      // 🔥 Add empty bot message first
+      const botId = Date.now() + 1;
+
       setMessages((m) => [
         ...m,
         {
-          id: Date.now() + 1,
+          id: botId,
           role: "bot",
-          text: data.answer,
+          text: "",
           time: timestamp(),
           mode,
         },
       ]);
+
+      // 🔥 Typing effect
+      let i = 0;
+      const fullText = data.answer;
+
+      const interval = setInterval(() => {
+        i++;
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === botId ? { ...msg, text: fullText.slice(0, i) } : msg,
+          ),
+        );
+
+        if (i >= fullText.length) {
+          clearInterval(interval);
+          setTyping(false);
+        }
+      }, 3); // ⚡ speed (lower = faster)
     } catch (err) {
       addToast("error", "Chat error", err.response?.data?.error || err.message);
     } finally {
@@ -920,7 +996,7 @@ export default function AIRagAssistant() {
   };
 
   const handleKey = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !typing) {
       e.preventDefault();
       handleSend();
     }
@@ -1137,6 +1213,7 @@ export default function AIRagAssistant() {
                 user={user}
                 onSignOut={handleSignOut}
                 isDark={isDark}
+                navigate={navigate}
               />
             </div>
           </header>
@@ -1251,6 +1328,7 @@ export default function AIRagAssistant() {
 
               <button
                 onClick={handleSend}
+                disabled={typing}
                 disabled={!input.trim()}
                 className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all shrink-0 text-white disabled:opacity-30"
                 style={{
@@ -1262,19 +1340,41 @@ export default function AIRagAssistant() {
                 }}
                 title="Send"
               >
-                <svg
-                  className="w-4 h-4 rotate-90"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                  />
-                </svg>
+                {typing ? (
+                  <svg
+                    className="w-4 h-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-4 h-4 rotate-90"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                    />
+                  </svg>
+                )}
               </button>
             </div>
           </div>

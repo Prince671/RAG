@@ -8,6 +8,8 @@ import Register from "./components/Register";
 import Toast from "./components/Toast";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
+import NotFound from "./components/NotFound";
+import Documents from "./components/Documents";
 
 function App() {
   return (
@@ -37,6 +39,11 @@ function App() {
               <Register />
             </PublicRoute>
           }
+        />
+        <Route path="/documents" element={<ProtectedRoute><Documents/></ProtectedRoute>} />
+        <Route path ="*" element={
+          <NotFound/>
+        }
         />
       </Routes>
     </>

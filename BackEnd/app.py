@@ -1,12 +1,13 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
+from flask import send_file
 
 import bcrypt
 from pymongo import MongoClient
 import tempfile
 import os
-
+import uuid
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_mistralai import MistralAIEmbeddings
@@ -21,10 +22,11 @@ from functools import wraps
 from flask import request
 
 
+
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
 SECRET_KEY=os.getenv("JWT_SCRET_KEY")  # Use a secure secret key in production
 
@@ -120,8 +122,10 @@ Keep it clear and helpful.
 ])
 
 # ================= AUTH =================
-@app.route("/register", methods=["POST"])
+@app.route("/register", methods=["POST", "OPTIONS"])
 def register():
+    if request.method=="OPTIONS":
+        return {"message": "OK"}, 200
     data = request.json
 
     if db.users.find_one({"email": data["email"]}):
@@ -137,8 +141,10 @@ def register():
 
     return jsonify({"user_id": str(user.inserted_id)})
 
-@app.route("/login", methods=["POST"])
+@app.route("/login", methods=["POST", "OPTIONS"])
 def login():
+    if request.method=="OPTIONS":
+        return {"message": "OK"}, 200
     data = request.json
 
     user = db.users.find_one({"email": data["email"]})
@@ -173,22 +179,99 @@ def getIDFromToken(token):
     except:
         return None
 
+
+
+
+@app.route("/documents", methods=["GET", "OPTIONS"])
+
+def get_documents():
+
+    if request.method=="OPTIONS":
+        return {"message": "OK"}, 200
+
+    user_id = getIDFromToken(request.headers.get("Authorization"))
+
+    docs = list(db.documents.find({"user_id": user_id}, {"_id": 0}))
+
+    return jsonify(docs)
+
+
+@app.route("/documents/<doc_id>", methods=["DELETE", "OPTIONS"])
+
+def delete_document(doc_id):
+
+    if request.method=="OPTIONS":
+        return {"message": "OK"}, 200
+
+    user_id = getIDFromToken(request.headers.get("Authorization"))
+
+    # 🔥 DELETE FROM PINECONE
+    index.delete(filter={
+        "user_id": user_id,
+        "doc_id": doc_id
+    })
+
+    # 🔥 DELETE FROM DB
+    db.documents.delete_one({
+        "doc_id": doc_id,
+        "user_id": user_id
+    })
+
+    return jsonify({"message": "Deleted"})
+
+
+
+
+@app.route("/documents/preview/<doc_id>", methods=["GET", "OPTIONS"])
+def preview_document(doc_id):
+    if request.method=="OPTIONS":
+        return {"message": "OK"}, 200
+    user_id = getIDFromToken(request.headers.get("Authorization"))
+
+    doc = db.documents.find_one({
+        "doc_id": doc_id,
+        "user_id": user_id
+    })
+
+    if not doc:
+        return jsonify({"error": "Not found"}), 404
+
+    # 🔥 You must store file path while uploading
+    file_path = doc.get("file_path")
+
+    return send_file(file_path, mimetype="application/pdf")
+
 # ================= UPLOAD =================
-@app.route("/upload", methods=["POST"])
-# @token_required
+
+
+@app.route("/upload", methods=["POST", "OPTIONS"])
 def upload():
+
+    # ✅ Handle CORS preflight
+    if request.method == "OPTIONS":
+        return {"message": "OK"}, 200
+
     try:
-        user_id = getIDFromToken(request.headers.get("Authorization"))
+        # 🔐 Extract user_id from token
+        auth_header = request.headers.get("Authorization")
+        user_id = getIDFromToken(auth_header)
 
         if not user_id:
             return jsonify({"error": "Missing user_id"}), 400
 
-        file = request.files["file"]
+        # 📄 Get file
+        file = request.files.get("file")
+        if not file:
+            return jsonify({"error": "No file uploaded"}), 400
 
+        filename = file.filename
+
+        # 📁 Save temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             file.save(tmp.name)
             path = tmp.name
 
+        # 📚 Load + split
         loader = PyPDFLoader(path)
         docs = loader.load()
 
@@ -196,31 +279,52 @@ def upload():
             chunk_size=800,
             chunk_overlap=150
         )
-
         chunks = splitter.split_documents(docs)
 
-        # 🔥 STORE IN PINECONE (USER-SPECIFIC)
+        # 🔥 CREATE UNIQUE DOCUMENT ID
+        doc_id = str(uuid.uuid4())
+
+        # 🚀 BATCH UPSERT (FASTER)
+        vectors = []
+
         for i, chunk in enumerate(chunks):
             embedding = embedding_model.embed_query(chunk.page_content)
 
-            index.upsert([{
-                "id": f"{user_id}_{i}",
+            vectors.append({
+                "id": f"{doc_id}_{i}",   # ✅ unique per document
                 "values": embedding,
                 "metadata": {
                     "user_id": user_id,
+                    "doc_id": doc_id,    # 🔥 IMPORTANT
                     "text": chunk.page_content
                 }
-            }])
+            })
 
+        # 🔥 Upload all at once (FASTER)
+        index.upsert(vectors)
+        file_path=path
+        # 💾 SAVE DOCUMENT METADATA (MongoDB)
+        db.documents.insert_one({
+            "doc_id": doc_id,
+            "user_id": user_id,
+            "filename": filename,
+            "file_path":file_path,
+            "uploaded_at": datetime.utcnow(),
+            "chunks": len(chunks)
+        })
+
+        # 🧹 Clean temp file
         os.remove(path)
 
-        return jsonify({"message": "Document uploaded successfully"})
+        return jsonify({
+            "message": "Document uploaded successfully",
+            "doc_id": doc_id,
+            "chunks": len(chunks)
+        })
 
     except Exception as e:
         print("UPLOAD ERROR:", str(e))
         return jsonify({"error": str(e)}), 500
-
-
 
 @app.route("/me", methods=["GET"])
 def get_me():
@@ -246,40 +350,74 @@ def get_me():
         return jsonify({"error": str(e)}), 401
 
 # ================= ASK =================
-@app.route("/ask", methods=["POST"])
-
+@app.route("/ask", methods=["POST", "OPTIONS"])
 def ask():
+
+    # ✅ Handle CORS preflight
+    if request.method == "OPTIONS":
+        return {"message": "OK"}, 200
+
     try:
-        user_id = getIDFromToken(request.headers.get("Authorization"))
+        # 🔐 Get user from token
+        auth_header = request.headers.get("Authorization")
+        user_id = getIDFromToken(auth_header)
 
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
-        
-        data = request.json
 
+        # 📥 Get request data
+        data = request.json
         query = data.get("question")
         mode = data.get("mode", "strict")
 
         if not query:
             return jsonify({"error": "No Question provided"}), 400
 
-        # if not user_id:
-        #     return jsonify({"error": "User not authenticated"}), 400
+        # 🔥 STEP 1: CHECK IF USER HAS DOCUMENTS
+        user_docs = db.documents.find_one({"user_id": user_id})
 
+        if not user_docs:
+            return jsonify({
+                "answer": "⚠️ You have not uploaded any document yet. Please upload a document first."
+            })
+
+        # 🔥 STEP 2: CREATE QUERY EMBEDDING
         query_embedding = embedding_model.embed_query(query)
 
+        # 🔥 STEP 3: QUERY PINECONE WITH STRICT FILTER
         results = index.query(
             vector=query_embedding,
             top_k=5,
             include_metadata=True,
-            filter={"user_id": user_id}
+            filter={
+                "user_id": {"$eq": user_id}   # ✅ strict filter
+            }
         )
 
-        docs = [match["metadata"]["text"] for match in results["matches"]]
+        # 🔥 STEP 4: HANDLE NO MATCHES
+        matches = results.get("matches", [])
 
+        if not matches:
+            return jsonify({
+                "answer": "⚠️ No relevant information found in your documents."
+            })
+
+        # 🔥 STEP 5: EXTRA SAFETY FILTER (DOUBLE CHECK)
+        docs = []
+        for match in matches:
+            metadata = match.get("metadata", {})
+            if metadata.get("user_id") == user_id:
+                docs.append(metadata.get("text", ""))
+
+        if not docs:
+            return jsonify({
+                "answer": "⚠️ No valid data found for your account."
+            })
+
+        # 📚 Build context
         context = "\n\n".join(docs)
 
-        # MODE SWITCH
+        # 🔥 STEP 6: MODE SWITCH
         if mode == "smart":
             final_prompt = smart_prompt.invoke({
                 "context": context,
@@ -291,6 +429,7 @@ def ask():
                 "question": query
             })
 
+        # 🤖 Generate response
         response = llm.invoke(final_prompt)
 
         return jsonify({
@@ -301,11 +440,10 @@ def ask():
         print("ASK ERROR:", str(e))
         return jsonify({"error": str(e)}), 500
 
-
 @app.route("/")
 def home():
     return jsonify({"status": "Running"})
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True )

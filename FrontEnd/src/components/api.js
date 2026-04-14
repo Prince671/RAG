@@ -1,7 +1,7 @@
 import axios from "axios";
 
 // ✅ BASE URL
-const BASE_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -23,6 +23,12 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
+export const getDocuments = () => api.get("/documents");
+
+export const deleteDocument = (docId) =>
+  api.delete(`/documents/${docId}`);
+
 
 // ─────────────────────────────────────────────
 // ⚠️ RESPONSE INTERCEPTOR (AUTO LOGOUT)

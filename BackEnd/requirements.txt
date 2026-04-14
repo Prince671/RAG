@@ -25,5 +25,4 @@ langchain-mistralai
 # Vector Database
 pinecone
 
-# Utilities
-bson
+gunicorn
