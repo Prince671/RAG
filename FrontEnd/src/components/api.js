@@ -106,9 +106,9 @@ export const uploadDocument = (file, onUploadProgress) => {
   form.append("file", file);
 
   return api.post("/upload", form, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
+   headers: {
+  Authorization: `Bearer ${localStorage.getItem("token")}`
+},
     onUploadProgress,
   });
 };
