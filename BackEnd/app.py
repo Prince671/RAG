@@ -245,7 +245,7 @@ def preview_document(doc_id):
 
 @app.route("/upload", methods=["POST", "OPTIONS"])
 def upload():
-  if request.method == "OPTIONS":
+    if request.method == "OPTIONS":
         return {"message": "OK"}, 200
     try:
         print("🔥 Upload started")
