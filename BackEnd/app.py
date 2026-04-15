@@ -164,7 +164,7 @@ def login():
     return jsonify({"error": "Invalid password"}), 400
 
 def getIDFromToken(token):
-     token=request.headers.get("Authorization")
+    token=request.headers.get("Authorization")
 
     if not token:
         return None
