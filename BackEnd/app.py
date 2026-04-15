@@ -241,10 +241,8 @@ def preview_document(doc_id):
 
 # ================= UPLOAD =================
 
-@app.route("/upload", methods=["POST", "OTPIONS"])
+@app.route("/upload", methods=["POST"])
 def upload():
-    if request.method == "OPTIONS":
-        return {"message": "OK"}, 200
     try:
         print("🔥 STEP 0: Upload hit")
 
@@ -297,7 +295,7 @@ def upload():
         doc_id = str(uuid.uuid4())
 
         vectors = []
-        for i, chunk in enumerate(chunks):  # 🔥 only 2 chunks (safe test)
+        for i, chunk in enumerate(chunks[:2]):  # 🔥 only 2 chunks (safe test)
             embedding = embedding_model.embed_query(chunk.page_content)
 
             vectors.append({
