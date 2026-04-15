@@ -255,16 +255,10 @@ def upload():
         user_id = getIDFromToken(auth_header)
         print("STEP 2 USER:", user_id)
 
-        if not user_id:
-            return jsonify({"error": "Missing user_id"}), 400
-
         # FILE
         if "file" not in request.files:
             print("STEP 3: file key missing")
             return jsonify({"error": "No file key"}), 400
-
-        file=request.files.get("file")
-        filename=file.filename
 
         file = request.files["file"]
         print("STEP 4 FILE:", file.filename)
@@ -308,25 +302,12 @@ def upload():
                 "values": embedding,
                 "metadata": {
                     "user_id": user_id,
-                    "doc_id":doc_id,
                     "text": chunk.page_content
                 }
             })
 
         print("STEP 10 UPSERT")
         index.upsert(vectors)
-
-        file_path=path
-
-        db.documents.insert_one({
-              "doc_id": doc_id,
-            "user_id": user_id,
-            "filename": filename,
-            "file_path":file_path,
-            "uploaded_at": datetime.utcnow(),
-            "chunks": len(chunks)
-
-        })
 
         print("STEP 11 DONE")
 
