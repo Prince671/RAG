@@ -26,8 +26,7 @@ from flask import request
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins":"*"}},
-    supports_credentials=True)
+CORS(app)
 
 SECRET_KEY=os.getenv("JWT_SECRET_KEY")  # Use a secure secret key in production
 
@@ -434,10 +433,3 @@ def ask():
 @app.route("/")
 def home():
     return jsonify({"status": "Running"})
-
-@app.after_request
-def after_request(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
-    response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
-    return response
