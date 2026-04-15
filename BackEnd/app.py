@@ -282,8 +282,8 @@ def upload():
 
         # ✂️ SPLIT (balanced config)
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1200,
-            chunk_overlap=200
+            chunk_size=5000,
+            chunk_overlap=1000
         )
 
         chunks = splitter.split_documents(docs)
