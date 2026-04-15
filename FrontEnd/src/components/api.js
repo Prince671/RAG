@@ -107,9 +107,6 @@ const form = new FormData();
 form.append("file", file);
 
 return api.post("/upload", form, {
-headers: {
-  Authorization: `Bearer ${localStorage.getItem("token")}`
-},
 onUploadProgress,
 });
 };
