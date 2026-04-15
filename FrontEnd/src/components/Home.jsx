@@ -1328,8 +1328,8 @@ export default function AIRagAssistant() {
 
               <button
                 onClick={handleSend}
-                disabled={typing}
-                disabled={!input.trim()}
+                disabled={typing || !input.trim()}
+                
                 className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all shrink-0 text-white disabled:opacity-30"
                 style={{
                   background: input.trim()
