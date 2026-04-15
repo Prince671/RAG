@@ -26,7 +26,8 @@ from flask import request
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins":"*"}},
+    supports_credentials=True)
 
 SECRET_KEY=os.getenv("JWT_SCRET_KEY")  # Use a secure secret key in production
 
@@ -243,8 +244,10 @@ def preview_document(doc_id):
 
 # ================= UPLOAD =================
 
-@app.route("/upload", methods=["POST"])
+@app.route("/upload", methods=["POST", "OPTIONS"])
 def upload():
+    if request.method=="OPTIONS":
+        return {"message": "OK"}, 200
     try:
         print("🚀 Upload request received")
 
@@ -477,3 +480,9 @@ def ask():
 def home():
     return jsonify({"status": "Running"})
 
+@app.after_request
+def after_request(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
+    return response
