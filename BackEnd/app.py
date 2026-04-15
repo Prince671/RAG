@@ -140,9 +140,10 @@ def register():
 
     return jsonify({"user_id": str(user.inserted_id)})
 
-@app.route("/login", methods=["POST"])
+@app.route("/login", methods=["POST", "OPTIONS"])
 def login():
-    
+    if request.method == "OPTIONS":
+        return {"message": "OK"}, 200
     data = request.json
 
     user = db.users.find_one({"email": data["email"]})
@@ -181,11 +182,12 @@ def getIDFromToken(token):
 
 
 
-@app.route("/documents", methods=["GET"])
+@app.route("/documents", methods=["GET", "OPTIONS"])
 
 def get_documents():
 
-    
+    if request.method == "OPTIONS":
+        return {"message": "OK"}, 200
 
     user_id = getIDFromToken(request.headers.get("Authorization"))
 
@@ -239,8 +241,10 @@ def preview_document(doc_id):
 
 # ================= UPLOAD =================
 
-@app.route("/upload", methods=["POST"])
+@app.route("/upload", methods=["POST", "OTPIONS"])
 def upload():
+    if request.method == "OPTIONS":
+        return {"message": "OK"}, 200
     try:
         print("🔥 STEP 0: Upload hit")
 
@@ -340,7 +344,7 @@ def get_me():
         return jsonify({"error": str(e)}), 401
 
 # ================= ASK =================
-@app.route("/ask", methods=["POST"])
+@app.route("/ask", methods=["POST", "OPTIONS"])
 def ask():
 
     # ✅ Handle CORS preflight
