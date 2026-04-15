@@ -295,7 +295,7 @@ def upload():
         doc_id = str(uuid.uuid4())
 
         vectors = []
-        for i, chunk in enumerate(chunks[:2]):  # 🔥 only 2 chunks (safe test)
+        for i, chunk in enumerate(chunks):  # 🔥 only 2 chunks (safe test)
             embedding = embedding_model.embed_query(chunk.page_content)
 
             vectors.append({
