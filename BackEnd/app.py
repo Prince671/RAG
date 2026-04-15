@@ -243,63 +243,80 @@ def preview_document(doc_id):
 @app.route("/upload", methods=["POST"])
 def upload():
     try:
+        print("🚀 Upload started")
+
+        # 🔐 AUTH
         auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            return jsonify({"error": "Missing token"}), 401
+
         user_id = getIDFromToken(auth_header)
-
         if not user_id:
-            return jsonify({"error": "Unauthorized"}), 401
+            return jsonify({"error": "Invalid token"}), 401
 
+        # 📄 FILE CHECK
         file = request.files.get("file")
         if not file:
-            return jsonify({"error": "No file"}), 400
+            return jsonify({"error": "No file uploaded"}), 400
 
-        # SAVE FILE
+        if file.filename == "":
+            return jsonify({"error": "Empty filename"}), 400
+
+        filename = file.filename
+
+        # 📁 SAVE TEMP FILE
         import tempfile
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             file.save(tmp.name)
             file_path = tmp.name
 
-        import uuid
-        doc_id = str(uuid.uuid4())
+        print("📁 File saved:", file_path)
 
-        # 🔥 START BACKGROUND PROCESS
-        thread = threading.Thread(
-            target=process_document,
-            args=(file_path, user_id, doc_id, file.filename)
-        )
-        thread.start()
-
-        # ✅ RETURN IMMEDIATELY
-        return jsonify({
-            "message": "Upload started",
-            "doc_id": doc_id
-        })
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-def process_document(file_path, user_id, doc_id, filename):
-    try:
-        print("🚀 Background processing started")
-
+        # 📚 LOAD PDF
         loader = PyPDFLoader(file_path)
         docs = loader.load()
 
+        if not docs:
+            return jsonify({"error": "PDF read failed"}), 400
+
+        print("📚 Pages:", len(docs))
+
+        # ✂️ SPLIT (balanced config)
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1200,
-            chunk_overlap=200
+            chunk_size=12000,
+            chunk_overlap=4200
         )
+
         chunks = splitter.split_documents(docs)
 
+        if not chunks:
+            return jsonify({"error": "No content found"}), 400
+
+        print("✂️ Total chunks:", len(chunks))
+
+        # 🆔 DOCUMENT ID
+        import uuid
+        doc_id = str(uuid.uuid4())
+
+        # 🚀 SAFE BATCH SETTINGS
         BATCH_SIZE = 10
 
+        def embed_with_retry(text, retries=3):
+            for attempt in range(retries):
+                try:
+                    return embedding_model.embed_query(text)
+                except Exception as e:
+                    print(f"⚠️ Retry {attempt+1}:", str(e))
+            raise Exception("Embedding failed after retries")
+
+        # 🚀 PROCESS IN BATCHES
         for i in range(0, len(chunks), BATCH_SIZE):
             batch = chunks[i:i + BATCH_SIZE]
+
             vectors = []
 
             for j, chunk in enumerate(batch):
-                embedding = embedding_model.embed_query(chunk.page_content)
+                embedding = embed_with_retry(chunk.page_content)
 
                 vectors.append({
                     "id": f"{doc_id}_{i+j}",
@@ -311,10 +328,22 @@ def process_document(file_path, user_id, doc_id, filename):
                     }
                 })
 
-            index.upsert(vectors)
-            print(f"✅ Batch {i//BATCH_SIZE + 1} uploaded")
+            print(f"📦 Uploading batch {i//BATCH_SIZE + 1}")
 
-        # SAVE METADATA
+            # 🚀 UPSERT WITH RETRY
+            for attempt in range(3):
+                try:
+                    index.upsert(vectors)
+                    break
+                except Exception as e:
+                    print(f"⚠️ Pinecone retry {attempt+1}:", str(e))
+                    if attempt == 2:
+                        raise e
+
+        print("✅ All batches uploaded")
+
+        # 💾 SAVE METADATA
+        from datetime import datetime
         db.documents.insert_one({
             "doc_id": doc_id,
             "user_id": user_id,
@@ -324,10 +353,17 @@ def process_document(file_path, user_id, doc_id, filename):
             "chunks": len(chunks)
         })
 
-        print("🎉 Document fully processed")
+        print("🗄️ Stored in DB")
+
+        return jsonify({
+            "message": "Document uploaded successfully",
+            "doc_id": doc_id,
+            "chunks": len(chunks)
+        })
 
     except Exception as e:
-        print("❌ BACKGROUND ERROR:", str(e))
+        print("❌ UPLOAD ERROR:", str(e))
+        return jsonify({"error": str(e)}), 500
         
 @app.route("/me", methods=["GET"])
 def get_me():
