@@ -1334,9 +1334,9 @@ export default function AIRagAssistant() {
                 style={{
                   background: input.trim()
                     ? accentColor
-                    : isDark
+                    : (isDark
                       ? "#334155"
-                      : "#cbd5e1",
+                      : "#cbd5e1"),
                 }}
                 title="Send"
               >
