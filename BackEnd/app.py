@@ -140,10 +140,9 @@ def register():
 
     return jsonify({"user_id": str(user.inserted_id)})
 
-@app.route("/login", methods=["POST", "OPTIONS"])
+@app.route("/login", methods=["POST"])
 def login():
-    if request.method == "OPTIONS":
-        return {"message": "OK"}, 200
+    #
     data = request.json
 
     user = db.users.find_one({"email": data["email"]})
@@ -165,7 +164,7 @@ def login():
     return jsonify({"error": "Invalid password"}), 400
 
 def getIDFromToken(token):
-    
+     token=request.headers.get("Authorization")
 
     if not token:
         return None
@@ -182,12 +181,11 @@ def getIDFromToken(token):
 
 
 
-@app.route("/documents", methods=["GET", "OPTIONS"])
+@app.route("/documents", methods=["GET"])
 
 def get_documents():
 
-    if request.method == "OPTIONS":
-        return {"message": "OK"}, 200
+    #
 
     user_id = getIDFromToken(request.headers.get("Authorization"))
 
@@ -244,75 +242,123 @@ def preview_document(doc_id):
 @app.route("/upload", methods=["POST"])
 def upload():
     try:
-        print("🔥 STEP 0: Upload hit")
+        print("🚀 Upload started")
 
-        # TOKEN
+        # 🔐 AUTH
         auth_header = request.headers.get("Authorization")
-        print("STEP 1 AUTH:", auth_header)
-
         if not auth_header:
             return jsonify({"error": "Missing token"}), 401
 
         user_id = getIDFromToken(auth_header)
-        print("STEP 2 USER:", user_id)
+        if not user_id:
+            return jsonify({"error": "Invalid token"}), 401
 
-        # FILE
-        if "file" not in request.files:
-            print("STEP 3: file key missing")
-            return jsonify({"error": "No file key"}), 400
+        # 📄 FILE CHECK
+        file = request.files.get("file")
+        if not file:
+            return jsonify({"error": "No file uploaded"}), 400
 
-        file = request.files["file"]
-        print("STEP 4 FILE:", file.filename)
+        if file.filename == "":
+            return jsonify({"error": "Empty filename"}), 400
 
-        # SAVE
+        filename = file.filename
+
+        # 📁 SAVE TEMP FILE
         import tempfile
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
             file.save(tmp.name)
-            path = tmp.name
+            file_path = tmp.name
 
-        print("STEP 5 PATH:", path)
+        print("📁 File saved:", file_path)
 
-        # LOAD PDF
-        loader = PyPDFLoader(path)
+        # 📚 LOAD PDF
+        loader = PyPDFLoader(file_path)
         docs = loader.load()
-        print("STEP 6 DOCS:", len(docs))
 
-        # SPLIT
+        if not docs:
+            return jsonify({"error": "PDF read failed"}), 400
+
+        print("📚 Pages:", len(docs))
+
+        # ✂️ SPLIT (balanced config)
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=800,
-            chunk_overlap=150
+            chunk_size=1200,
+            chunk_overlap=200
         )
+
         chunks = splitter.split_documents(docs)
-        print("STEP 7 CHUNKS:", len(chunks))
 
-        # EMBEDDING TEST (IMPORTANT)
-        print("STEP 8 EMBEDDING TEST")
-        test_embedding = embedding_model.embed_query("test")
-        print("STEP 9 EMBEDDING OK")
+        if not chunks:
+            return jsonify({"error": "No content found"}), 400
 
-        # UPSERT TEST
+        print("✂️ Total chunks:", len(chunks))
+
+        # 🆔 DOCUMENT ID
         import uuid
         doc_id = str(uuid.uuid4())
 
-        vectors = []
-        for i, chunk in enumerate(chunks):  # 🔥 only 2 chunks (safe test)
-            embedding = embedding_model.embed_query(chunk.page_content)
+        # 🚀 SAFE BATCH SETTINGS
+        BATCH_SIZE = 10
 
-            vectors.append({
-                "id": f"{doc_id}_{i}",
-                "values": embedding,
-                "metadata": {
-                    "user_id": user_id,
-                    "text": chunk.page_content
-                }
-            })
+        def embed_with_retry(text, retries=3):
+            for attempt in range(retries):
+                try:
+                    return embedding_model.embed_query(text)
+                except Exception as e:
+                    print(f"⚠️ Retry {attempt+1}:", str(e))
+            raise Exception("Embedding failed after retries")
 
-        print("STEP 10 UPSERT")
-        index.upsert(vectors)
+        # 🚀 PROCESS IN BATCHES
+        for i in range(0, len(chunks), BATCH_SIZE):
+            batch = chunks[i:i + BATCH_SIZE]
 
-        print("STEP 11 DONE")
+            vectors = []
 
-        return jsonify({"message": "Upload success"})
+            for j, chunk in enumerate(batch):
+                embedding = embed_with_retry(chunk.page_content)
+
+                vectors.append({
+                    "id": f"{doc_id}_{i+j}",
+                    "values": embedding,
+                    "metadata": {
+                        "user_id": user_id,
+                        "doc_id": doc_id,
+                        "text": chunk.page_content
+                    }
+                })
+
+            print(f"📦 Uploading batch {i//BATCH_SIZE + 1}")
+
+            # 🚀 UPSERT WITH RETRY
+            for attempt in range(3):
+                try:
+                    index.upsert(vectors)
+                    break
+                except Exception as e:
+                    print(f"⚠️ Pinecone retry {attempt+1}:", str(e))
+                    if attempt == 2:
+                        raise e
+
+        print("✅ All batches uploaded")
+
+        # 💾 SAVE METADATA
+        from datetime import datetime
+        db.documents.insert_one({
+            "doc_id": doc_id,
+            "user_id": user_id,
+            "filename": filename,
+            "file_path": file_path,
+            "uploaded_at": datetime.utcnow(),
+            "chunks": len(chunks)
+        })
+
+        print("🗄️ Stored in DB")
+
+        return jsonify({
+            "message": "Document uploaded successfully",
+            "doc_id": doc_id,
+            "chunks": len(chunks)
+        })
 
     except Exception as e:
         print("❌ UPLOAD ERROR:", str(e))
@@ -342,12 +388,11 @@ def get_me():
         return jsonify({"error": str(e)}), 401
 
 # ================= ASK =================
-@app.route("/ask", methods=["POST", "OPTIONS"])
+@app.route("/ask", methods=["POST"])
 def ask():
 
     # ✅ Handle CORS preflight
-    if request.method == "OPTIONS":
-        return {"message": "OK"}, 200
+    #
 
     try:
         # 🔐 Get user from token
@@ -435,3 +480,11 @@ def ask():
 @app.route("/")
 def home():
     return jsonify({"status": "Running"})
+
+@app.after_request
+def after_request(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,PUT,DELETE,OPTIONS"
+    return response
+
