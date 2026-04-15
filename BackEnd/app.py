@@ -29,7 +29,7 @@ app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins":"*"}},
     supports_credentials=True)
 
-SECRET_KEY=os.getenv("JWT_SCRET_KEY")  # Use a secure secret key in production
+SECRET_KEY=os.getenv("JWT_SECRET_KEY")  # Use a secure secret key in production
 
 
 def token_required(f):
@@ -123,10 +123,9 @@ Keep it clear and helpful.
 ])
 
 # ================= AUTH =================
-@app.route("/register", methods=["POST", "OPTIONS"])
+@app.route("/register", methods=["POST"])
 def register():
-    if request.method=="OPTIONS":
-        return {"message": "OK"}, 200
+    
     data = request.json
 
     if db.users.find_one({"email": data["email"]}):
@@ -142,10 +141,9 @@ def register():
 
     return jsonify({"user_id": str(user.inserted_id)})
 
-@app.route("/login", methods=["POST", "OPTIONS"])
+@app.route("/login", methods=["POST"])
 def login():
-    if request.method=="OPTIONS":
-        return {"message": "OK"}, 200
+    
     data = request.json
 
     user = db.users.find_one({"email": data["email"]})
@@ -167,7 +165,7 @@ def login():
     return jsonify({"error": "Invalid password"}), 400
 
 def getIDFromToken(token):
-    token=request.headers.get("Authorization")
+    
 
     if not token:
         return None
@@ -177,18 +175,18 @@ def getIDFromToken(token):
         token=token.split(" ")[1]
         decoded=jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
         return decoded["user_id"]
-    except:
+    except Exception as e:
+        print("Token Error :" , str(e))
         return None
 
 
 
 
-@app.route("/documents", methods=["GET", "OPTIONS"])
+@app.route("/documents", methods=["GET"])
 
 def get_documents():
 
-    if request.method=="OPTIONS":
-        return {"message": "OK"}, 200
+    
 
     user_id = getIDFromToken(request.headers.get("Authorization"))
 
@@ -197,12 +195,11 @@ def get_documents():
     return jsonify(docs)
 
 
-@app.route("/documents/<doc_id>", methods=["DELETE", "OPTIONS"])
+@app.route("/documents/<doc_id>", methods=["DELETE"])
 
 def delete_document(doc_id):
 
-    if request.method=="OPTIONS":
-        return {"message": "OK"}, 200
+    
 
     user_id = getIDFromToken(request.headers.get("Authorization"))
 
@@ -223,10 +220,9 @@ def delete_document(doc_id):
 
 
 
-@app.route("/documents/preview/<doc_id>", methods=["GET", "OPTIONS"])
+@app.route("/documents/preview/<doc_id>", methods=["GET"])
 def preview_document(doc_id):
-    if request.method=="OPTIONS":
-        return {"message": "OK"}, 200
+    
     user_id = getIDFromToken(request.headers.get("Authorization"))
 
     doc = db.documents.find_one({
@@ -244,10 +240,10 @@ def preview_document(doc_id):
 
 # ================= UPLOAD =================
 
-@app.route("/upload", methods=["POST", "OPTIONS"])
+@app.route("/upload", methods=["POST"])
 def upload():
-    if request.method=="OPTIONS":
-        return {"message": "OK"}, 200
+    # if request.method=="OPTIONS":
+    #     return {"message": "OK"}, 200
     try:
         print("🚀 Upload request received")
 
@@ -386,7 +382,7 @@ def get_me():
         return jsonify({"error": str(e)}), 401
 
 # ================= ASK =================
-@app.route("/ask", methods=["POST", "OPTIONS"])
+@app.route("/ask", methods=["POST"])
 def ask():
 
     # ✅ Handle CORS preflight
