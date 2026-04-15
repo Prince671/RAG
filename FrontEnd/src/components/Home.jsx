@@ -987,7 +987,7 @@ export default function AIRagAssistant() {
           clearInterval(interval);
           setTyping(false);
         }
-      }, 3); // ⚡ speed (lower = faster)
+      }, 6); // ⚡ speed (lower = faster)
     } catch (err) {
       addToast("error", "Chat error", err.response?.data?.error || err.message);
     } finally {
