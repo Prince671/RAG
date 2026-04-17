@@ -10,11 +10,11 @@ import { useNavigate } from "react-router-dom";
 function FileIcon({ filename = "" }) {
   const ext = filename.split(".").pop()?.toLowerCase();
   const map = {
-    pdf: { bg: "#ef4444", label: "PDF" },
-    doc: { bg: "#2563eb", label: "DOC" },
+    pdf:  { bg: "#ef4444", label: "PDF" },
+    doc:  { bg: "#2563eb", label: "DOC" },
     docx: { bg: "#2563eb", label: "DOC" },
-    txt: { bg: "#64748b", label: "TXT" },
-    md: { bg: "#8b5cf6", label: "MD" },
+    txt:  { bg: "#64748b", label: "TXT" },
+    md:   { bg: "#8b5cf6", label: "MD"  },
   };
   const { bg, label } = map[ext] || {
     bg: "#475569",
@@ -32,7 +32,6 @@ function FileIcon({ filename = "" }) {
         clipPath: "polygon(0 0, 75% 0, 100% 15%, 100% 100%, 0 100%)",
       }}
     >
-      {/* dog-ear fold */}
       <div
         style={{
           position: "absolute",
@@ -49,7 +48,50 @@ function FileIcon({ filename = "" }) {
   );
 }
 
-// ─── Confirm dialog ───────────────────────────────────────────────
+// ─── Deleting overlay (shown while API call is in progress) ───────
+function DeletingOverlay({ message = "Deleting document…" }) {
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[#0a0f1e]/85 backdrop-blur-md" />
+      <div
+        className="relative z-10 flex flex-col items-center gap-5 bg-[#131c2e] border border-[#1e3a5f] rounded-2xl px-10 py-9 shadow-2xl min-w-[280px]"
+        style={{ animation: "popIn 0.22s cubic-bezier(.34,1.56,.64,1) both" }}
+      >
+        {/* Spinner */}
+        <div className="relative flex items-center justify-center w-16 h-16">
+          <div
+            className="absolute inset-0 rounded-full opacity-20 animate-ping"
+            style={{ background: "#ef4444" }}
+          />
+          <div
+            className="w-12 h-12 rounded-full border-2 border-red-500/20 border-t-red-400"
+            style={{ animation: "spin 0.85s linear infinite" }}
+          />
+          <span className="absolute text-lg">🗑️</span>
+        </div>
+
+        {/* Label */}
+        <div className="text-center">
+          <p className="text-white font-semibold text-base">{message}</p>
+          <p className="text-slate-500 text-xs mt-1">Please wait…</p>
+        </div>
+
+        {/* Animated dots */}
+        <div className="flex gap-1.5">
+          {[0, 150, 300].map((d) => (
+            <span
+              key={d}
+              className="w-1.5 h-1.5 rounded-full bg-red-400 animate-bounce"
+              style={{ animationDelay: `${d}ms` }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Confirm delete single ────────────────────────────────────────
 function ConfirmModal({ docName, onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
@@ -95,6 +137,52 @@ function ConfirmModal({ docName, onConfirm, onCancel }) {
   );
 }
 
+// ─── Confirm delete all ───────────────────────────────────────────
+function ConfirmAllModal({ count, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-[#0a0f1e]/80 backdrop-blur-md"
+        onClick={onCancel}
+      />
+      <div
+        className="relative z-10 bg-[#131c2e] border border-[#1e3a5f] rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+        style={{ animation: "popIn 0.22s cubic-bezier(.34,1.56,.64,1) both" }}
+      >
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 text-lg">
+            ⚠️
+          </div>
+          <div>
+            <p className="font-semibold text-white text-sm">Delete all documents?</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              This will permanently remove all {count} document{count !== 1 ? "s" : ""}
+            </p>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400 bg-[#0f172a] rounded-lg px-3 py-2 mb-5 border border-[#1e293b]">
+          🗂️ All {count} document{count !== 1 ? "s" : ""} will be deleted from your knowledge base and cannot be recovered.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2 rounded-xl text-sm text-slate-400 border border-[#1e3a5f] hover:border-slate-500 hover:text-white transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2 rounded-xl text-sm font-semibold text-white bg-red-500 hover:bg-red-400 transition-all"
+            style={{ boxShadow: "0 4px 14px rgba(239,68,68,0.35)" }}
+          >
+            Delete All
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── PDF / Doc preview modal ──────────────────────────────────────
 function PreviewModal({ doc, onClose }) {
   const ext = doc.filename?.split(".").pop()?.toLowerCase();
@@ -102,10 +190,7 @@ function PreviewModal({ doc, onClose }) {
   const [loading, setLoading] = useState(true);
 
   const token = localStorage.getItem("token");
-  // Build preview URL — adjust to match your API's document-serve endpoint
-
   const previewUrl = `${import.meta.env.VITE_API_URL}/documents/preview/${doc.doc_id}?token=${token}`;
-  console.log(previewUrl);
 
   return (
     <div className="fixed inset-0 z-[998] flex items-center justify-center p-4">
@@ -132,25 +217,16 @@ function PreviewModal({ doc, onClose }) {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Download */}
             <a
               href={previewUrl}
               download={doc.filename}
               className="w-8 h-8 rounded-lg border border-[#1e3a5f] hover:border-blue-500/50 hover:bg-blue-500/10 flex items-center justify-center text-slate-400 hover:text-blue-400 transition-all"
               title="Download"
             >
-              <svg
-                width="14"
-                height="14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              >
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M7 1v8M3 6l4 4 4-4M1 11v1a1 1 0 001 1h10a1 1 0 001-1v-1" />
               </svg>
             </a>
-            {/* Close */}
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-lg border border-[#1e3a5f] hover:border-red-500/40 hover:bg-red-500/10 flex items-center justify-center text-slate-400 hover:text-red-400 transition-all text-base"
@@ -171,7 +247,6 @@ function PreviewModal({ doc, onClose }) {
               <p className="text-sm text-slate-500">Loading preview…</p>
             </div>
           )}
-
           {isPdf ? (
             <iframe
               src={`${previewUrl}#toolbar=1&navpanes=1&scrollbar=1`}
@@ -184,9 +259,7 @@ function PreviewModal({ doc, onClose }) {
             <div className="flex flex-col items-center justify-center h-full gap-5 p-8">
               <FileIcon filename={doc.filename} />
               <div className="text-center">
-                <p className="text-white font-semibold mb-1">
-                  Preview not available
-                </p>
+                <p className="text-white font-semibold mb-1">Preview not available</p>
                 <p className="text-sm text-slate-500 mb-4">
                   This file type cannot be previewed directly in the browser.
                 </p>
@@ -198,9 +271,7 @@ function PreviewModal({ doc, onClose }) {
                     background: "linear-gradient(135deg, #1d4ed8, #3b82f6)",
                     boxShadow: "0 4px 16px rgba(59,130,246,0.35)",
                   }}
-                  onMouseOver={(e) => {
-                    setLoading(false);
-                  }}
+                  onMouseOver={() => setLoading(false)}
                 >
                   ⬇ Download to view
                 </a>
@@ -234,12 +305,9 @@ function EmptyState({ onBack }) {
         📭
       </div>
       <div className="text-center">
-        <p className="text-white font-semibold text-lg mb-1">
-          No documents yet
-        </p>
+        <p className="text-white font-semibold text-lg mb-1">No documents yet</p>
         <p className="text-slate-500 text-sm max-w-xs">
-          Upload your first document from the chat screen to get started with
-          RAG.
+          Upload your first document from the chat screen to get started with RAG.
         </p>
       </div>
       <button
@@ -261,10 +329,7 @@ function SkeletonCard() {
   return (
     <div
       className="rounded-2xl border border-[#1e293b] p-5 flex items-center gap-4"
-      style={{
-        background: "#0f1e35",
-        animation: "pulse 1.8s ease-in-out infinite",
-      }}
+      style={{ background: "#0f1e35", animation: "pulse 1.8s ease-in-out infinite" }}
     >
       <div className="w-12 h-14 rounded-xl bg-[#1e293b]" />
       <div className="flex-1 space-y-2">
@@ -285,13 +350,9 @@ function DocCard({ doc, index, onDelete, onPreview }) {
     if (!ts) return null;
     try {
       return new Date(ts).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
+        year: "numeric", month: "short", day: "numeric",
       });
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   };
 
   const ext = doc.filename?.split(".").pop()?.toLowerCase();
@@ -322,16 +383,13 @@ function DocCard({ doc, index, onDelete, onPreview }) {
       />
 
       <div className="flex items-center gap-4 px-5 py-4">
-        {/* File icon */}
         <FileIcon filename={doc.filename} />
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <p className="text-white font-semibold text-sm truncate mb-1">
             {doc.filename}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            {/* Chunks badge */}
             <span
               className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
               style={{
@@ -346,7 +404,6 @@ function DocCard({ doc, index, onDelete, onPreview }) {
               </svg>
               {doc.chunks} chunks
             </span>
-            {/* Date badge */}
             {formatDate(doc.created_at || doc.uploaded_at) && (
               <span className="text-[10px] text-slate-500">
                 {formatDate(doc.created_at || doc.uploaded_at)}
@@ -357,6 +414,24 @@ function DocCard({ doc, index, onDelete, onPreview }) {
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {canPreview && (
+            <button
+              onClick={() => onPreview(doc)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              style={{
+                background: hovered ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.08)",
+                border: "1px solid rgba(59,130,246,0.25)",
+                color: "#60a5fa",
+              }}
+              title="Preview document"
+            >
+              <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="5.5" cy="5.5" r="4.5" />
+                <circle cx="5.5" cy="5.5" r="1.8" />
+              </svg>
+              Preview
+            </button>
+          )}
           <button
             onClick={() => onDelete(doc)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
@@ -367,14 +442,7 @@ function DocCard({ doc, index, onDelete, onPreview }) {
             }}
             title="Delete document"
           >
-            <svg
-              width="11"
-              height="11"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            >
+            <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <polyline points="2 3 9 3" />
               <path d="M3.5 3V9.5a.5.5 0 00.5.5h3a.5.5 0 00.5-.5V3" />
               <path d="M4 3V2h3v1" />
@@ -392,9 +460,11 @@ export default function Documents() {
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQ, setSearchQ] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState(null); // doc object
-  const [previewDoc, setPreviewDoc] = useState(null); // doc object
-  const [deleting, setDeleting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);   // single doc
+  const [confirmAllOpen, setConfirmAllOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [deleting, setDeleting] = useState(false);          // shows overlay
+  const [deletingMessage, setDeletingMessage] = useState("Deleting document…");
   const navigate = useNavigate();
 
   const fetchDocs = useCallback(async () => {
@@ -409,38 +479,41 @@ export default function Documents() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchDocs();
-  }, [fetchDocs]);
+  useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
+  // ── Single delete ──
   const handleDeleteConfirm = async () => {
     if (!deleteTarget || deleting) return;
-    setDeleting(true);
+    setDeleteTarget(null);               // close confirm modal first
+    setDeletingMessage("Deleting document…");
+    setDeleting(true);                   // show overlay
     try {
       await deleteDocument(deleteTarget.doc_id);
-      fetchDocs();
-      setDocs((prev) => prev.filter((d) => d.doc_id !== deleteTarget.doc_id));
+      await fetchDocs();
     } catch {
-      // keep modal open, show nothing (could add inline error)
+      // silently ignore
     } finally {
       setDeleting(false);
-      setDeleteTarget(null);
     }
   };
 
-  const handleDeleteAll = async () => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete ALL documents?",
-    );
-
-    if (!confirmDelete) return;
-
-    await deleteAllDocument();
-    fetchDocs(); // refresh UI
+  // ── Delete all ──
+  const handleDeleteAllConfirm = async () => {
+    setConfirmAllOpen(false);            // close confirm modal first
+    setDeletingMessage("Deleting all documents…");
+    setDeleting(true);                   // show overlay
+    try {
+      await deleteAllDocument();
+      await fetchDocs();
+    } catch {
+      // silently ignore
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const filtered = docs.filter((d) =>
-    d.filename?.toLowerCase().includes(searchQ.toLowerCase()),
+    d.filename?.toLowerCase().includes(searchQ.toLowerCase())
   );
 
   const totalChunks = docs.reduce((s, d) => s + (d.chunks || 0), 0);
@@ -468,29 +541,27 @@ export default function Documents() {
           to { transform: rotate(360deg); }
         }
         @keyframes pulse {
-          0%,100% { opacity: 1; }
+          0%,100% { opacity: 1;   }
           50%      { opacity: .45; }
         }
         @keyframes shimmer {
           from { background-position: -200% 0; }
           to   { background-position:  200% 0; }
         }
-        @keyframes gradMove {
-          0%,100% { background-position: 0% 50%; }
-          50%      { background-position: 100% 50%; }
-        }
 
         .search-input::placeholder { color: #475569; }
         .search-input:focus { outline: none; }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar       { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; }
       `}</style>
 
-      {/* Confirm modal */}
-      {deleteTarget && (
+      {/* ── Deleting overlay (highest layer) ── */}
+      {deleting && <DeletingOverlay message={deletingMessage} />}
+
+      {/* ── Single delete confirm ── */}
+      {deleteTarget && !deleting && (
         <ConfirmModal
           docName={deleteTarget.filename}
           onConfirm={handleDeleteConfirm}
@@ -498,28 +569,29 @@ export default function Documents() {
         />
       )}
 
-      {deleteTarget && (
-        <ConfirmModal
-          onConfirm={handleDeleteAll}
-          onCancel={() => setDeleteTarget(null)}
+      {/* ── Delete all confirm ── */}
+      {confirmAllOpen && !deleting && (
+        <ConfirmAllModal
+          count={docs.length}
+          onConfirm={handleDeleteAllConfirm}
+          onCancel={() => setConfirmAllOpen(false)}
         />
       )}
 
-      {/* Preview modal */}
+      {/* ── Preview modal ── */}
       {previewDoc && (
         <PreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} />
       )}
 
-      {/* Page */}
+      {/* ── Page ── */}
       <div
         className="min-h-screen text-white"
         style={{
-          background:
-            "linear-gradient(160deg, #060c18 0%, #0a1628 50%, #060c18 100%)",
+          background: "linear-gradient(160deg, #060c18 0%, #0a1628 50%, #060c18 100%)",
           backgroundSize: "200% 200%",
         }}
       >
-        {/* Subtle grid backdrop */}
+        {/* Grid backdrop */}
         <div
           className="fixed inset-0 pointer-events-none"
           style={{
@@ -531,36 +603,11 @@ export default function Documents() {
         />
 
         {/* Glow blobs */}
-        <div
-          className="fixed pointer-events-none"
-          style={{
-            zIndex: 0,
-            top: "-10%",
-            left: "20%",
-            width: 500,
-            height: 500,
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(29,78,216,0.09) 0%, transparent 70%)",
-            filter: "blur(40px)",
-          }}
-        />
-        <div
-          className="fixed pointer-events-none"
-          style={{
-            zIndex: 0,
-            bottom: "0%",
-            right: "10%",
-            width: 400,
-            height: 400,
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(139,92,246,0.07) 0%, transparent 70%)",
-            filter: "blur(40px)",
-          }}
-        />
+        <div className="fixed pointer-events-none" style={{ zIndex: 0, top: "-10%", left: "20%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(29,78,216,0.09) 0%, transparent 70%)", filter: "blur(40px)" }} />
+        <div className="fixed pointer-events-none" style={{ zIndex: 0, bottom: "0%", right: "10%", width: 400, height: 400, borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.07) 0%, transparent 70%)", filter: "blur(40px)" }} />
 
         <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-8">
+
           {/* ── HEADER ── */}
           <div className="mb-8" style={{ animation: "fadeUp 0.5s ease both" }}>
             {/* Back link */}
@@ -569,12 +616,8 @@ export default function Documents() {
               className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-400 transition-colors mb-5 group"
             >
               <svg
-                width="14"
-                height="14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
+                width="14" height="14" fill="none" stroke="currentColor"
+                strokeWidth="2" strokeLinecap="round"
                 className="transition-transform group-hover:-translate-x-0.5"
               >
                 <polyline points="10 4 4 8 10 12" />
@@ -582,15 +625,14 @@ export default function Documents() {
               Back to Chat
             </button>
 
-            {/* Title row */}
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            {/* Title + stats row */}
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div>
                 <h1
                   className="text-2xl sm:text-3xl font-black tracking-tight"
                   style={{
                     fontFamily: "'Syne', sans-serif",
-                    background:
-                      "linear-gradient(135deg, #e2e8f0 30%, #60a5fa 80%, #a78bfa 100%)",
+                    background: "linear-gradient(135deg, #e2e8f0 30%, #60a5fa 80%, #a78bfa 100%)",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}
@@ -602,39 +644,54 @@ export default function Documents() {
                 </p>
               </div>
 
-              {/* Stats pills */}
+              {/* Stats + Delete All — stacked on the right */}
               {!loading && docs.length > 0 && (
-                <div className="flex items-center gap-2 shrink-0">
-                  <span
-                    className="text-[11px] font-semibold px-3 py-1.5 rounded-full"
-                    style={{
-                      background: "rgba(59,130,246,0.12)",
-                      border: "1px solid rgba(59,130,246,0.25)",
-                      color: "#60a5fa",
-                    }}
-                  >
-                    {docs.length} {docs.length === 1 ? "file" : "files"}
-                  </span>
-                  <span
-                    className="text-[11px] font-semibold px-3 py-1.5 rounded-full"
-                    style={{
-                      background: "rgba(139,92,246,0.12)",
-                      border: "1px solid rgba(139,92,246,0.25)",
-                      color: "#a78bfa",
-                    }}
-                  >
-                    {totalChunks.toLocaleString()} chunks
-                  </span>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  {/* Pills row */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[11px] font-semibold px-3 py-1.5 rounded-full"
+                      style={{
+                        background: "rgba(59,130,246,0.12)",
+                        border: "1px solid rgba(59,130,246,0.25)",
+                        color: "#60a5fa",
+                      }}
+                    >
+                      {docs.length} {docs.length === 1 ? "file" : "files"}
+                    </span>
+                    <span
+                      className="text-[11px] font-semibold px-3 py-1.5 rounded-full"
+                      style={{
+                        background: "rgba(139,92,246,0.12)",
+                        border: "1px solid rgba(139,92,246,0.25)",
+                        color: "#a78bfa",
+                      }}
+                    >
+                      {totalChunks.toLocaleString()} chunks
+                    </span>
+                  </div>
 
+                  {/* Delete All — sits below the pills, right-aligned */}
                   <button
-                    onClick={handleDeleteAll}
-                    className="ml-4 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    onClick={() => setConfirmAllOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                     style={{
-                      background: "rgba(239,68,68,0.12)",
-                      border: "1px solid rgba(239,68,68,0.25)",
-                      color: "#ef4444",
+                      background: "rgba(239,68,68,0.10)",
+                      border: "1px solid rgba(239,68,68,0.28)",
+                      color: "#f87171",
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = "rgba(239,68,68,0.18)";
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = "rgba(239,68,68,0.10)";
                     }}
                   >
+                    <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <polyline points="2 3 9 3" />
+                      <path d="M3.5 3V9.5a.5.5 0 00.5.5h3a.5.5 0 00.5-.5V3" />
+                      <path d="M4 3V2h3v1" />
+                    </svg>
                     Delete All
                   </button>
                 </div>
@@ -649,14 +706,7 @@ export default function Documents() {
               style={{ animation: "fadeUp 0.5s 0.1s ease both" }}
             >
               <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">
-                <svg
-                  width="14"
-                  height="14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                >
+                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <circle cx="6" cy="6" r="5" />
                   <path d="M11 11l2.5 2.5" />
                 </svg>
@@ -670,9 +720,7 @@ export default function Documents() {
                 style={{
                   background: "#0c1829",
                   borderColor: searchQ ? "#2d5a9e" : "#1a2e4a",
-                  boxShadow: searchQ
-                    ? "0 0 0 3px rgba(59,130,246,0.1)"
-                    : "none",
+                  boxShadow: searchQ ? "0 0 0 3px rgba(59,130,246,0.1)" : "none",
                 }}
               />
               {searchQ && (
@@ -690,13 +738,7 @@ export default function Documents() {
           {loading ? (
             <div className="flex flex-col gap-3">
               {[0, 1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  style={{
-                    animationDelay: `${i * 0.08}s`,
-                    animation: "fadeUp 0.4s ease both",
-                  }}
-                >
+                <div key={i} style={{ animationDelay: `${i * 0.08}s`, animation: "fadeUp 0.4s ease both" }}>
                   <SkeletonCard />
                 </div>
               ))}
@@ -709,9 +751,7 @@ export default function Documents() {
               style={{ animation: "fadeUp 0.4s ease both" }}
             >
               <span className="text-3xl">🔍</span>
-              <p className="text-white font-medium">
-                No results for "{searchQ}"
-              </p>
+              <p className="text-white font-medium">No results for "{searchQ}"</p>
               <p className="text-slate-500 text-sm">Try a different filename</p>
             </div>
           ) : (
@@ -734,8 +774,7 @@ export default function Documents() {
               className="text-center text-[11px] text-slate-600 mt-10"
               style={{ animation: "fadeUp 0.5s 0.5s ease both" }}
             >
-              Documents are used as context in RAG mode · Delete to remove from
-              index
+              Documents are used as context in RAG mode · Delete to remove from index
             </p>
           )}
         </div>
