@@ -59,6 +59,8 @@ api.interceptors.response.use(
 // ─────────────────────────────────────────────
 // 🔐 AUTH
 // ─────────────────────────────────────────────
+export const deleteAllDocument=()=>
+  api.delete("/documents/all");
 
 // ✅ LOGIN
 export const login = async (email, password) => {
