@@ -737,8 +737,8 @@ export default function Home() {
   const [fileName, setFileName] = useState(null);
   const [uploadStage, setUploadStage] = useState(null);
   const [simulatedPercent, setSimulatedPercent] = useState(0);
-  const [documents, setDocuments]= useState([]);
-  const [docToasts, setDocToasts]= useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [docToasts, setDocToasts] = useState([]);
   const navigate = useNavigate();
   const cancelRef = useRef(false);
   const stageTimersRef = useRef([]);
@@ -788,35 +788,33 @@ export default function Home() {
   }, [mode]);
 
   useEffect(() => {
-  documents.forEach((doc) => {
-    const exists = docToasts.find((d) => d.doc_id === doc.doc_id);
+    documents.forEach((doc) => {
+      const exists = docToasts.find((d) => d.doc_id === doc.doc_id);
 
-    // ✅ Add only new processing/completed docs
-    if (
-      (doc.status === "processing" || doc.status === "completed") &&
-      !exists
-    ) {
-      setDocToasts((prev) => [...prev, { ...doc, fading: false }]);
+      // ✅ Add only new processing/completed docs
+      if (
+        (doc.status === "processing" || doc.status === "completed") &&
+        !exists
+      ) {
+        setDocToasts((prev) => [...prev, { ...doc, fading: false }]);
 
-      // 🔥 Start fade after 4s
-      setTimeout(() => {
-        setDocToasts((prev) =>
-          prev.map((d) =>
-            d.doc_id === doc.doc_id ? { ...d, fading: true } : d
-          )
-        );
-
-        // 🔥 Remove after fade (1s later)
+        // 🔥 Start fade after 4s
         setTimeout(() => {
           setDocToasts((prev) =>
-            prev.filter((d) => d.doc_id !== doc.doc_id)
+            prev.map((d) =>
+              d.doc_id === doc.doc_id ? { ...d, fading: true } : d,
+            ),
           );
-        }, 1000);
-      }, 4000);
-    }
-  });
-}, [documents, docToasts]);
-  
+
+          // 🔥 Remove after fade (1s later)
+          setTimeout(() => {
+            setDocToasts((prev) => prev.filter((d) => d.doc_id !== doc.doc_id));
+          }, 1000);
+        }, 4000);
+      }
+    });
+  }, [documents, docToasts]);
+
   const addToast = useCallback((type, title, msg) => {
     const id = Date.now() + Math.random();
     setToasts((t) => [...t, { id, type, title, msg }]);
@@ -857,15 +855,15 @@ export default function Home() {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, typing]);
 
-  useEffect(()=>{
+  useEffect(() => {
     fetchDocuments();
 
-    const interval=setInterval(()=>{
+    const interval = setInterval(() => {
       fetchDocuments();
-    },2000);
+    }, 2000);
 
-    return ()=> clearInterval(interval);
-  },[]);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -877,27 +875,26 @@ export default function Home() {
     localStorage.removeItem("chat_input");
     localStorage.removeItem("chat_history");
     localStorage.removeItem("chat_mode");
-    localStorag.removeItem("user_id");
-    localStorag.removeItem("name");
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("name");
     navigate("/login");
   };
 
-  const fetchDoucments=async () =>{
-    try{
-      const {data} = await getDocuments();
+  const fetchDocuments = async () => {
+    try {
+      const { data } = await getDocuments();
       setDocuments(data);
-    }catch(err){
+    } catch (err) {
       console.error("Failed to Fetch Documents ", err);
     }
   };
 
   const getStatusUI = (status) => {
-  if (status === "processing") return "⏳ Processing...";
-  if (status === "completed") return "✅ Ready";
-  if (status === "failed") return "❌ Failed";
-  return "";
-};
-  
+    if (status === "processing") return "⏳ Processing...";
+    if (status === "completed") return "✅ Ready";
+    if (status === "failed") return "❌ Failed";
+    return "";
+  };
 
   const startProgress = useCallback((from, to, durationMs, onDone) => {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
@@ -994,12 +991,12 @@ export default function Home() {
   };
 
   const handleSend = async () => {
-    const notReady = documents.some(doc => doc.status === "processing");
+    const notReady = documents.some((doc) => doc.status === "processing");
 
-if (notReady) {
-  addToast("warning", "Wait", "Document is still processing");
-  return;
-}
+    if (notReady) {
+      addToast("warning", "Wait", "Document is still processing");
+      return;
+    }
     const text = input.trim();
     if (!text || typing) return;
 
@@ -1137,8 +1134,6 @@ if (notReady) {
         />
       )}
 
-      
-
       <UploadOverlay
         stage={uploadStage}
         simulatedPercent={simulatedPercent}
@@ -1146,35 +1141,33 @@ if (notReady) {
         onCancel={handleCancelUpload}
         isDark={isDark}
       />
-      
+
       <Toast toasts={toasts} remove={removeToast} isDark={isDark} />
       <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2">
-  {docToasts.map((doc) => (
-    <div
-      key={doc.doc_id}
-      className={`px-4 py-2 rounded-xl text-sm shadow-lg border flex justify-between gap-4 min-w-[220px]
+        {docToasts.map((doc) => (
+          <div
+            key={doc.doc_id}
+            className={`px-4 py-2 rounded-xl text-sm shadow-lg border flex justify-between gap-4 min-w-[220px]
       transition-all duration-1000
-      ${
-        doc.fading ? "opacity-0 translate-y-2" : ""
-      }
+      ${doc.fading ? "opacity-0 translate-y-2" : ""}
       ${
         doc.status === "processing"
           ? "bg-blue-500/10 border-blue-400 animate-pulse"
           : doc.status === "completed"
-          ? "bg-green-500/10 border-green-400 opacity-70"
-          : "bg-red-500/10 border-red-400"
+            ? "bg-green-500/10 border-green-400 opacity-70"
+            : "bg-red-500/10 border-red-400"
       }`}
-    >
-      <span className="truncate">📄 {doc.filename}</span>
+          >
+            <span className="truncate">📄 {doc.filename}</span>
 
-      <span className="text-xs font-semibold">
-        {doc.status === "processing" && "⏳ Processing"}
-        {doc.status === "completed" && "✅ Ready"}
-        {doc.status === "failed" && "❌ Failed"}
-      </span>
-    </div>
-  ))}
-</div>
+            <span className="text-xs font-semibold">
+              {doc.status === "processing" && "⏳ Processing"}
+              {doc.status === "completed" && "✅ Ready"}
+              {doc.status === "failed" && "❌ Failed"}
+            </span>
+          </div>
+        ))}
+      </div>
       <div
         className={`flex h-screen h-[100dvh] ${bg} ${textMain} overflow-hidden`}
       >
@@ -1424,14 +1417,13 @@ if (notReady) {
               <button
                 onClick={handleSend}
                 disabled={typing || !input.trim()}
-                
                 className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-all shrink-0 text-white disabled:opacity-30"
                 style={{
                   background: input.trim()
                     ? accentColor
-                    : (isDark
+                    : isDark
                       ? "#334155"
-                      : "#cbd5e1"),
+                      : "#cbd5e1",
                 }}
                 title="Send"
               >
