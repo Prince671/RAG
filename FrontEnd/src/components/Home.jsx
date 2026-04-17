@@ -716,7 +716,7 @@ function MobileSidebar({ open, onClose, history, onClearHistory, isDark }) {
 // ─────────────────────────────────────────────────────────────────
 //  MAIN
 // ─────────────────────────────────────────────────────────────────
-export default function AIRagAssistant() {
+export default function Home() {
   const [mode, setMode] = useState(
     () => localStorage.getItem("chat_mode") || "rag",
   );
@@ -737,7 +737,8 @@ export default function AIRagAssistant() {
   const [fileName, setFileName] = useState(null);
   const [uploadStage, setUploadStage] = useState(null);
   const [simulatedPercent, setSimulatedPercent] = useState(0);
-
+  const [documents, setDocuments]= useState([]);
+  const [docToasts, setDocToasts]= useState([]);
   const navigate = useNavigate();
   const cancelRef = useRef(false);
   const stageTimersRef = useRef([]);
@@ -786,6 +787,36 @@ export default function AIRagAssistant() {
     localStorage.setItem("chat_mode", mode);
   }, [mode]);
 
+  useEffect(() => {
+  documents.forEach((doc) => {
+    const exists = docToasts.find((d) => d.doc_id === doc.doc_id);
+
+    // ✅ Add only new processing/completed docs
+    if (
+      (doc.status === "processing" || doc.status === "completed") &&
+      !exists
+    ) {
+      setDocToasts((prev) => [...prev, { ...doc, fading: false }]);
+
+      // 🔥 Start fade after 4s
+      setTimeout(() => {
+        setDocToasts((prev) =>
+          prev.map((d) =>
+            d.doc_id === doc.doc_id ? { ...d, fading: true } : d
+          )
+        );
+
+        // 🔥 Remove after fade (1s later)
+        setTimeout(() => {
+          setDocToasts((prev) =>
+            prev.filter((d) => d.doc_id !== doc.doc_id)
+          );
+        }, 1000);
+      }, 4000);
+    }
+  });
+}, [documents, docToasts]);
+  
   const addToast = useCallback((type, title, msg) => {
     const id = Date.now() + Math.random();
     setToasts((t) => [...t, { id, type, title, msg }]);
@@ -826,6 +857,16 @@ export default function AIRagAssistant() {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, typing]);
 
+  useEffect(()=>{
+    fetchDocuments();
+
+    const interval=setInterval(()=>{
+      fetchDocuments();
+    },2000);
+
+    return ()=> clearInterval(interval);
+  },[]);
+
   const handleSignOut = async () => {
     try {
       await logout();
@@ -836,8 +877,27 @@ export default function AIRagAssistant() {
     localStorage.removeItem("chat_input");
     localStorage.removeItem("chat_history");
     localStorage.removeItem("chat_mode");
+    localStorag.removeItem("user_id");
+    localStorag.removeItem("name");
     navigate("/login");
   };
+
+  const fetchDoucments=async () =>{
+    try{
+      const {data} = await getDocuments();
+      setDocuments(data);
+    }catch(err){
+      console.error("Failed to Fetch Documents ", err);
+    }
+  };
+
+  const getStatusUI = (status) => {
+  if (status === "processing") return "⏳ Processing...";
+  if (status === "completed") return "✅ Ready";
+  if (status === "failed") return "❌ Failed";
+  return "";
+};
+  
 
   const startProgress = useCallback((from, to, durationMs, onDone) => {
     if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
@@ -934,6 +994,12 @@ export default function AIRagAssistant() {
   };
 
   const handleSend = async () => {
+    const notReady = documents.some(doc => doc.status === "processing");
+
+if (notReady) {
+  addToast("warning", "Wait", "Document is still processing");
+  return;
+}
     const text = input.trim();
     if (!text || typing) return;
 
@@ -1071,6 +1137,8 @@ export default function AIRagAssistant() {
         />
       )}
 
+      
+
       <UploadOverlay
         stage={uploadStage}
         simulatedPercent={simulatedPercent}
@@ -1078,8 +1146,35 @@ export default function AIRagAssistant() {
         onCancel={handleCancelUpload}
         isDark={isDark}
       />
+      
       <Toast toasts={toasts} remove={removeToast} isDark={isDark} />
+      <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2">
+  {docToasts.map((doc) => (
+    <div
+      key={doc.doc_id}
+      className={`px-4 py-2 rounded-xl text-sm shadow-lg border flex justify-between gap-4 min-w-[220px]
+      transition-all duration-1000
+      ${
+        doc.fading ? "opacity-0 translate-y-2" : ""
+      }
+      ${
+        doc.status === "processing"
+          ? "bg-blue-500/10 border-blue-400 animate-pulse"
+          : doc.status === "completed"
+          ? "bg-green-500/10 border-green-400 opacity-70"
+          : "bg-red-500/10 border-red-400"
+      }`}
+    >
+      <span className="truncate">📄 {doc.filename}</span>
 
+      <span className="text-xs font-semibold">
+        {doc.status === "processing" && "⏳ Processing"}
+        {doc.status === "completed" && "✅ Ready"}
+        {doc.status === "failed" && "❌ Failed"}
+      </span>
+    </div>
+  ))}
+</div>
       <div
         className={`flex h-screen h-[100dvh] ${bg} ${textMain} overflow-hidden`}
       >
