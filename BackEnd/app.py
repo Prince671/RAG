@@ -388,6 +388,100 @@ def get_me():
         
         return jsonify({"error": str(e)}), 401
 
+
+@app.route("/documents/<doc_id>", methods=["DELETE"])
+def delete_document(doc_id):
+    try:
+        auth_header = request.headers.get("Authorization")
+        user_id = getIDFromToken(auth_header)
+
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        print("🗑️ Deleting document:", doc_id)
+
+        # 🔥 STEP 1: DELETE FROM PINECONE (FIXED FILTER)
+        index.delete(
+            filter={
+                "user_id": {"$eq": user_id},
+                "doc_id": {"$eq": doc_id}
+            }
+        )
+
+        print("✅ Deleted from Pinecone")
+
+        # 🔥 STEP 2: GET FILE PATH (OPTIONAL CLEANUP)
+        doc = db.documents.find_one({
+            "doc_id": doc_id,
+            "user_id": user_id
+        })
+
+        if doc and doc.get("file_path"):
+            try:
+                os.remove(doc["file_path"])
+                print("🧹 File removed")
+            except Exception as e:
+                print("File delete error:", str(e))
+
+        # 🔥 STEP 3: DELETE FROM MONGODB
+        db.documents.delete_one({
+            "doc_id": doc_id,
+            "user_id": user_id
+        })
+
+        print("🗄️ Deleted from MongoDB")
+
+        return jsonify({"message": "Document deleted successfully"})
+
+    except Exception as e:
+        print("❌ DELETE ERROR:", str(e))
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/documents/all", methods=["DELETE"])
+def delete_all_documents():
+    try:
+        auth_header = request.headers.get("Authorization")
+        user_id = getIDFromToken(auth_header)
+
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        print("🗑️ Deleting ALL documents for user:", user_id)
+
+        # 🔥 STEP 1: DELETE FROM PINECONE
+        index.delete(
+            filter={
+                "user_id": {"$eq": user_id}
+            }
+        )
+
+        print("✅ All vectors deleted from Pinecone")
+
+        # 🔥 STEP 2: GET ALL DOCUMENTS (for file cleanup)
+        docs = list(db.documents.find({"user_id": user_id}))
+
+        # 🔥 STEP 3: DELETE FILES
+        for doc in docs:
+            if doc.get("file_path"):
+                try:
+                    os.remove(doc["file_path"])
+                except Exception as e:
+                    print("File delete error:", str(e))
+
+        # 🔥 STEP 4: DELETE FROM MONGODB
+        db.documents.delete_many({"user_id": user_id})
+
+        print("🗄️ All documents removed from MongoDB")
+
+        return jsonify({"message": "All documents deleted successfully"})
+
+    except Exception as e:
+        print("❌ DELETE ALL ERROR:", str(e))
+        return jsonify({"error": str(e)}), 500
+
+
+
 # ================= ASK =================
 @app.route("/ask", methods=["POST"])
 def ask():
