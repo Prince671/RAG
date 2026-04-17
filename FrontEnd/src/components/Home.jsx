@@ -5,6 +5,7 @@ import {
   askQuestion,
   getMe,
   getDocuments,
+  deleteAllDocument,
 } from "./api";
 import { useNavigate } from "react-router-dom";
 
@@ -737,8 +738,7 @@ export default function Home() {
   const [fileName, setFileName] = useState(null);
   const [uploadStage, setUploadStage] = useState(null);
   const [simulatedPercent, setSimulatedPercent] = useState(0);
-  const [documents, setDocuments] = useState([]);
-  const [docToasts, setDocToasts] = useState([]);
+
   const navigate = useNavigate();
   const cancelRef = useRef(false);
   const stageTimersRef = useRef([]);
@@ -787,34 +787,6 @@ export default function Home() {
     localStorage.setItem("chat_mode", mode);
   }, [mode]);
 
-  useEffect(() => {
-    documents.forEach((doc) => {
-      const exists = docToasts.find((d) => d.doc_id === doc.doc_id);
-
-      // ✅ Add only new processing/completed docs
-      if (
-        (doc.status === "processing" || doc.status === "completed") &&
-        !exists
-      ) {
-        setDocToasts((prev) => [...prev, { ...doc, fading: false }]);
-
-        // 🔥 Start fade after 4s
-        setTimeout(() => {
-          setDocToasts((prev) =>
-            prev.map((d) =>
-              d.doc_id === doc.doc_id ? { ...d, fading: true } : d,
-            ),
-          );
-
-          // 🔥 Remove after fade (1s later)
-          setTimeout(() => {
-            setDocToasts((prev) => prev.filter((d) => d.doc_id !== doc.doc_id));
-          }, 1000);
-        }, 4000);
-      }
-    });
-  }, [documents, docToasts]);
-
   const addToast = useCallback((type, title, msg) => {
     const id = Date.now() + Math.random();
     setToasts((t) => [...t, { id, type, title, msg }]);
@@ -855,16 +827,6 @@ export default function Home() {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
   }, [messages, typing]);
 
-  useEffect(() => {
-    fetchDocuments();
-
-    const interval = setInterval(() => {
-      fetchDocuments();
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const handleSignOut = async () => {
     try {
       await logout();
@@ -875,25 +837,10 @@ export default function Home() {
     localStorage.removeItem("chat_input");
     localStorage.removeItem("chat_history");
     localStorage.removeItem("chat_mode");
+    localStorage.removeItem("toast");
     localStorage.removeItem("user_id");
     localStorage.removeItem("name");
     navigate("/login");
-  };
-
-  const fetchDocuments = async () => {
-    try {
-      const { data } = await getDocuments();
-      setDocuments(data);
-    } catch (err) {
-      console.error("Failed to Fetch Documents ", err);
-    }
-  };
-
-  const getStatusUI = (status) => {
-    if (status === "processing") return "⏳ Processing...";
-    if (status === "completed") return "✅ Ready";
-    if (status === "failed") return "❌ Failed";
-    return "";
   };
 
   const startProgress = useCallback((from, to, durationMs, onDone) => {
@@ -990,13 +937,16 @@ export default function Home() {
     }
   };
 
-  const handleSend = async () => {
-    const notReady = documents.some((doc) => doc.status === "processing");
+  const handleUpload = async (file) => {
+    try {
+      await uploadDocument(file);
 
-    if (notReady) {
-      addToast("warning", "Wait", "Document is still processing");
-      return;
+      addToast("success", "Upload Successful", "PDF uploaded successfully");
+    } catch (err) {
+      addToast("error", "Upload Error", err.message);
     }
+  };
+  const handleSend = async () => {
     const text = input.trim();
     if (!text || typing) return;
 
@@ -1050,7 +1000,7 @@ export default function Home() {
           clearInterval(interval);
           setTyping(false);
         }
-      }, 6); // ⚡ speed (lower = faster)
+      }, 3); // ⚡ speed (lower = faster)
     } catch (err) {
       addToast("error", "Chat error", err.response?.data?.error || err.message);
     } finally {
@@ -1141,33 +1091,8 @@ export default function Home() {
         onCancel={handleCancelUpload}
         isDark={isDark}
       />
-
       <Toast toasts={toasts} remove={removeToast} isDark={isDark} />
-      <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2">
-        {docToasts.map((doc) => (
-          <div
-            key={doc.doc_id}
-            className={`px-4 py-2 rounded-xl text-sm shadow-lg border flex justify-between gap-4 min-w-[220px]
-      transition-all duration-1000
-      ${doc.fading ? "opacity-0 translate-y-2" : ""}
-      ${
-        doc.status === "processing"
-          ? "bg-blue-500/10 border-blue-400 animate-pulse"
-          : doc.status === "completed"
-            ? "bg-green-500/10 border-green-400 opacity-70"
-            : "bg-red-500/10 border-red-400"
-      }`}
-          >
-            <span className="truncate">📄 {doc.filename}</span>
 
-            <span className="text-xs font-semibold">
-              {doc.status === "processing" && "⏳ Processing"}
-              {doc.status === "completed" && "✅ Ready"}
-              {doc.status === "failed" && "❌ Failed"}
-            </span>
-          </div>
-        ))}
-      </div>
       <div
         className={`flex h-screen h-[100dvh] ${bg} ${textMain} overflow-hidden`}
       >
