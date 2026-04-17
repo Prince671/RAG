@@ -414,24 +414,7 @@ function DocCard({ doc, index, onDelete, onPreview }) {
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          {canPreview && (
-            <button
-              onClick={() => onPreview(doc)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-              style={{
-                background: hovered ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.08)",
-                border: "1px solid rgba(59,130,246,0.25)",
-                color: "#60a5fa",
-              }}
-              title="Preview document"
-            >
-              <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="5.5" cy="5.5" r="4.5" />
-                <circle cx="5.5" cy="5.5" r="1.8" />
-              </svg>
-              Preview
-            </button>
-          )}
+          
           <button
             onClick={() => onDelete(doc)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
