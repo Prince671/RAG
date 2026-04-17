@@ -1,5 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { getDocuments, deleteDocument } from "../components/api";
+import {
+  getDocuments,
+  deleteDocument,
+  deleteAllDocument,
+} from "../components/api";
 import { useNavigate } from "react-router-dom";
 
 // ─── File-type icon ───────────────────────────────────────────────
@@ -414,6 +418,7 @@ export default function Documents() {
     setDeleting(true);
     try {
       await deleteDocument(deleteTarget.doc_id);
+      fetchDocs();
       setDocs((prev) => prev.filter((d) => d.doc_id !== deleteTarget.doc_id));
     } catch {
       // keep modal open, show nothing (could add inline error)
@@ -421,6 +426,17 @@ export default function Documents() {
       setDeleting(false);
       setDeleteTarget(null);
     }
+  };
+
+  const handleDeleteAll = async () => {
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete ALL documents?",
+    );
+
+    if (!confirmDelete) return;
+
+    await deleteAllDocument();
+    fetchDocs(); // refresh UI
   };
 
   const filtered = docs.filter((d) =>
@@ -478,6 +494,13 @@ export default function Documents() {
         <ConfirmModal
           docName={deleteTarget.filename}
           onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          onConfirm={handleDeleteAll}
           onCancel={() => setDeleteTarget(null)}
         />
       )}
@@ -602,6 +625,18 @@ export default function Documents() {
                   >
                     {totalChunks.toLocaleString()} chunks
                   </span>
+
+                  <button
+                    onClick={handleDeleteAll}
+                    className="ml-4 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      background: "rgba(239,68,68,0.12)",
+                      border: "1px solid rgba(239,68,68,0.25)",
+                      color: "#ef4444",
+                    }}
+                  >
+                    Delete All
+                  </button>
                 </div>
               )}
             </div>
