@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import {
   getDocuments,
   deleteDocument,
-  deleteAllDocument
+  deleteAllDocument,
 } from "../components/api";
 import { useNavigate } from "react-router-dom";
 
