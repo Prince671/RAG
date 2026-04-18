@@ -1047,6 +1047,9 @@ export default function AIRagAssistant() {
     localStorage.removeItem("chat_input");
     localStorage.removeItem("chat_history");
     localStorage.removeItem("chat_mode");
+    localStorage.removeItem("user_id");
+    localStorage.removeItem("toast");
+    localStorage.removeItem("rag_theme");
     navigate("/login");
   };
 
