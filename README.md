@@ -2,10 +2,11 @@
 
 An intelligent **Retrieval-Augmented Generation (RAG)** web application that allows users to:
 
-* 📄 Upload PDF documents
+* 📄 Upload & manage PDF documents
 * 🤖 Ask questions based on uploaded documents
 * 🧠 Get AI-generated answers using document context
-* 🔐 Secure login & registration system
+* 🎤 Use voice input for queries
+* 🔐 Secure authentication system
 
 Built using **Flask (Backend)** and **React (Frontend)** with **Pinecone Vector DB** and **Mistral AI**.
 
@@ -19,23 +20,61 @@ Built using **Flask (Backend)** and **React (Frontend)** with **Pinecone Vector 
 * JWT-based authentication
 * Secure API access
 
-## 📄 Document Upload
+---
+
+## 📄 Document Management
 
 * Upload PDF documents
+* View uploaded documents
+* Delete documents (removes from Pinecone + MongoDB)
+* File preview support
+
+---
+
+## 🧠 RAG Processing
+
 * Automatic text chunking
-* Generate embeddings using Mistral
-* Store vectors in Pinecone
+* Embeddings using Mistral AI
+* Vector storage in Pinecone
+* Strict user-based filtering (no data leakage between users)
 
-## 🤖 AI Chat (RAG + Smart Mode)
+---
 
-* **Strict Mode** → Answers ONLY from document context
-* **Smart Mode** → Uses document + AI knowledge
-* Clean structured responses (headings, bullets, code)
+## 🤖 AI Chat Modes
+
+### 🔹 Strict Mode
+* Answers ONLY from uploaded document context
+* No hallucination
+
+### 🔹 Smart Mode
+* Uses document + AI knowledge
+* More flexible answers
+
+---
+
+## 🎤 Voice Input
+
+* Speak your query instead of typing
+* Speech-to-text integration
+* Seamless chat interaction
+
+---
+
+## 🧾 Response Enhancements
+
+* Clean formatted responses
+  - Headings
+  - Bullet points
+  - Code blocks
+* 📋 Copy response button
+* Improved readability UI
+
+---
 
 ## 📱 Mobile Support
 
-* Accessible on mobile (same network)
-* Responsive UI
+* Works on mobile devices (same network)
+* Fully responsive UI
 
 ---
 
@@ -51,7 +90,7 @@ Built using **Flask (Backend)** and **React (Frontend)** with **Pinecone Vector 
 
 * Flask
 * Flask-CORS
-* JWT (PyJWT)
+* PyJWT
 
 ## 🔹 AI & RAG
 
@@ -61,7 +100,7 @@ Built using **Flask (Backend)** and **React (Frontend)** with **Pinecone Vector 
 
 ## 🔹 Database
 
-* MongoDB (Users)
+* MongoDB (Users & Documents)
 * Pinecone (Vector Database)
 
 ---
@@ -73,104 +112,109 @@ Built using **Flask (Backend)** and **React (Frontend)** with **Pinecone Vector 
 ```bash
 git clone https://github.com/Prince671/RAG.git
 cd RAG
-```
+
 
 ---
 
-## 2️⃣ Backend Setup
+2️⃣ Backend Setup
 
-```bash
 cd backend
 python -m venv venv
 venv\Scripts\activate   # Windows
 pip install -r requirements.txt
-```
 
-### Create `.env` file:
+Create .env file:
 
-```env
 MONGO_URI=your_mongodb_url
 PINECONE_API_KEY=your_pinecone_key
 JWT_SECRET_KEY=your_secret_key
-```
 
-### Run Backend:
+Run Backend:
 
-```bash
 python app.py
-```
+
 
 ---
 
-## 3️⃣ Frontend Setup
+3️⃣ Frontend Setup
 
-```bash
 cd frontend
 npm install
-```
 
-### Create `.env`:
+Create .env:
 
-```env
 VITE_API_URL=http://localhost:5000
-```
 
-### Run Frontend:
+Run Frontend:
 
-```bash
 npm run dev
-```
+
 
 ---
 
-# 🌐 Run on Mobile (Same WiFi)
+🌐 Run on Mobile (Same WiFi)
 
 1. Find your IP:
 
-```bash
+
+
 ipconfig
-```
 
 2. Run frontend:
 
-```bash
+
+
 npm run dev -- --host
-```
 
 3. Update API URL:
 
-```env
-VITE_API_URL=http://192.168.X.X:5000
-```
 
-4. Open on phone:
 
-```
-http://192.168.X.X:5173
-```
+VITE_API_URL=http://121.0.0.0:5000
+
+
+
 
 ---
 
-# 📡 API Endpoints
+📡 API Endpoints
 
-## 🔐 Auth
+🔐 Auth
 
-* `POST /register`
-* `POST /login`
+POST /register
 
-## 📄 Documents
+POST /login
 
-* `POST /upload`
 
-## 💬 Chat
-
-* `POST /ask`
 
 ---
 
-# 📂 Project Structure
+📄 Documents
 
-```
+POST /upload → Upload PDF
+
+GET /documents → Get all documents
+
+DELETE /documents/:id → Delete document
+
+DELETE /documents/all → Delete all documents
+
+GET /documents/preview/:id → Preview file
+
+
+
+---
+
+💬 Chat
+
+POST /ask → Ask question (RAG + Smart Mode)
+
+
+
+---
+
+📂 Project Structure
+
 rag-ai-assistant/
 │
 ├── backend/
@@ -179,53 +223,61 @@ rag-ai-assistant/
 │
 ├── frontend/
 │   ├── src/
-│   ├── components/
-│   ├── pages/
+│     ├── components/
+│   
 │
 └── README.md
-```
+
 
 ---
 
-# ⚡ Performance Optimizations
+⚡ Performance Optimizations
 
-* Batch embeddings for faster processing
-* Single Pinecone upsert (optimized API calls)
-* Efficient chunking strategy
+Batch embedding generation
+
+Single Pinecone upsert (faster)
+
+Optimized chunking strategy
+
+Efficient filtering per user
+
+
 
 ---
 
-# 🚀 Future Improvements
+🚀 Future Improvements
 
-* 📊 Upload progress tracking
-* 🌍 Deployment (Vercel + Render)
+📊 Upload progress indicator
+
+🌍 Deployment (Vercel + Render)
+
+🧠 Chat history & memory
+
+🎤 Continuous voice mode (Jarvis-style)
+
+
 
 ---
 
-# 🤝 Contributing
+🤝 Contributing
 
 Pull requests are welcome!
 For major changes, open an issue first.
 
+
 ---
 
-# 📜 License
+📜 License
 
 This project is open-source under the MIT License.
 
+
 ---
 
-# 👨‍💻 Author
+👨‍💻 Author
 
-**Prince Soni**
+Prince Soni
 🚀 Passionate about AI, Full Stack & Generative AI
 
+
 ---
-
-# ⭐ Support
-
-If you like this project:
-
-👉 Star the repo
-👉 Share with others
-👉 Build something amazing 🚀
