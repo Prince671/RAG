@@ -1,1 +1,95 @@
 @import "tailwindcss";
+
+/* ============================================
+   COPY & SELECTION PREVENTION
+   ============================================ */
+
+/* Prevent text selection on everything by default */
+*,
+*::before,
+*::after {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+
+  /* Prevent callout (long-press menu) on iOS */
+  -webkit-touch-callout: none;
+
+  /* Prevent tap highlight on mobile */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ============================================
+   RE-ENABLE SELECTION ONLY WHERE NEEDED
+   ============================================ */
+
+/* Allow typing in inputs, textareas, selects */
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* ============================================
+   PREVENT RIGHT-CLICK CONTEXT MENU (via CSS hint)
+   NOTE: Full block requires the JS snippet below
+   ============================================ */
+
+/* Prevent drag of images */
+img,
+svg {
+  -webkit-user-drag: none;
+  user-drag: none;
+  pointer-events: none;
+}
+
+/* Re-enable pointer events on interactive images if needed */
+img[role="button"],
+img.clickable,
+svg.clickable {
+  pointer-events: auto;
+}
+
+/* ============================================
+   PREVENT PRINT (hides all content when printing)
+   ============================================ */
+
+@media print {
+  body * {
+    display: none !important;
+  }
+
+  body::after {
+    display: block !important;
+    content: "Printing is disabled on this page.";
+    font-size: 1.5rem;
+    text-align: center;
+    margin-top: 40vh;
+    color: #333;
+  }
+}
+
+/* ============================================
+   OPTIONAL: Cursor style to hint non-selectability
+   ============================================ */
+
+body {
+  cursor: default;
+}
+
+a,
+button,
+[role="button"] {
+  cursor: pointer;
+}
+
+input,
+textarea {
+  cursor: text;
+}
